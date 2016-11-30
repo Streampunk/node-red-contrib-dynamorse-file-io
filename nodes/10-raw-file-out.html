@@ -1,0 +1,104 @@
+<!--
+  Copyright 2016 Streampunk Media Ltd.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/javascript">
+  RED.nodes.registerType('raw-file-out', {
+    category: 'spout',
+    color: '#FDE8C3',
+    defaults: {
+      name : { value : '' },
+      file : { value : '' },
+      headers : { value : '' },
+      timeout : {  value : 0, validate : RED.validators.number() }
+    },
+    inputs:1,
+    outputs:0,
+    align: 'right',
+    icon: "spout.png",
+    label: function() {
+      return this.name || "raw-file-out";
+    }
+  });
+</script>
+
+<script type="text/x-red" data-template-name="raw-file-out">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag" aria-hidden="true"></i> name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-file"><i class="fa fa-file" aria-hidden="true"></i> file</label>
+    <input type="text" id="node-input-file" placeholder="essence.raw">
+  </div>
+  <div class="form-row">
+    <label for="node-input-headers"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
+    <input type="text" id="node-input-headers" placeholder="">
+  </div>
+  <div class="form-row">
+    <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
+    <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
+  </div>
+</script>
+
+<style>
+.param-table table, th, td {
+  vertical-align: top;
+  padding: 3px;
+}
+</style>
+
+<script type="text/x-red" data-help-name="raw-file-out">
+  <h1>Raw file data output</h1>
+  <p>Write a file that is a sequence of concatenated raw data for grains. Either:</p>
+  <ul>
+   <li>each of the grains has the same number of bytes;</li>
+   <li>a sidecar JSON file is provided with the size of each payload.</li>
+  </ul>
+  <p>Grain metadata can be stored in a sidecar file.</p>
+
+  <h3>Parameters</h3>
+  <div class="param-table">
+  <table>
+   <tr>
+    <th>parameter</th><th>description</th>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+    <td>Name of the node.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-file" aria-hidden="true"></i> file</td>
+    <td>Path location for the file where the grain payload is to be stored.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-file-text" aria-hidden="true"></i> headers</td>
+    <td>Optional path location for the sidecar file containing the grain headers
+     and individual grain payload size.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-clock-o"></i> timeout</td>
+    <td>Time to wait between writing each grain. Controls the back-pressure.</td>
+   </tr>
+  </table>
+  </div>
+
+  <p>File path locations are relative to the folder where the dynamorse server was
+  started.</p>
+
+  <h3>Maturity</h3>
+  <p>Implemented and awaiting roundtrip testing -
+  <a href="https://github.com/Streampunk/dynamorse/issues/6">status</a>.
+</script>

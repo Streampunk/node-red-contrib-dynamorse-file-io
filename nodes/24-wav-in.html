@@ -1,0 +1,140 @@
+<!--
+  Copyright 2016 Streampunk Media Ltd.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/javascript">
+  RED.nodes.registerType('wav-in',{
+    category: 'funnel',
+    color: '#D79748',
+    defaults: {
+      name : { value : '' },
+      file : { value : "", required : true },
+      description : { value : "" },
+      device : { value : "", type : "device" },
+      loop : { value : false },
+      grps : { value : 25, validate : RED.validators.number() },
+      maxBuffer : { value : 10, validate : RED.validators.number() }
+    },
+    inputs:0,
+    outputs:1,
+    icon: "funnel.png",
+    label: function() {
+      return this.name || "wav-in";
+    }
+  });
+</script>
+
+<script type="text/x-red" data-template-name="wav-in">
+<!-- Common to all funnel nodes -->
+<div class="form-row">
+  <label for="node-input-name"><i class="fa fa-tag"></i> name</label>
+  <input type="text" id="node-input-name" placeholder="name">
+</div>
+<div class="form-row">
+  <label for="node-input-file"><i class="fa fa-file"></i> WAV file</label>
+  <input type="text" id="node-input-file" placeholder="dynamorse.wav">
+</div>
+<div class="form-row">
+  <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
+  <input type="text" id="node-input-description" placeholder="source and flow description">
+</div>
+<div class="form-row">
+  <label for="node-input-device"><i class="fa fa-tablet"></i> device</label>
+  <input type="text" id="node-input-device">
+</div>
+<div class="form-row">
+  <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
+  <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
+</div>
+<div class="form-row">
+  <label for="node-input-loop"><i class="fa fa-repeat"></i> loop?</label>
+  <input type="checkbox" id="node-input-loop" style="width: 100px">
+  <label for="node-input-grps"><i class="fa fa-heart-o" aria-hidden="true"></i> grains/s</label>
+  <select id="node-input-grps" style="width: 100px" type="number">
+    <option value="25" selected>25</option>
+    <option value="29.97">29.97</option>
+  </select>
+</div>
+</script>
+
+<style>
+.param-table table, th, td {
+  vertical-align: top;
+  padding: 3px;
+}
+</style>
+
+<script type="text/x-red" data-help-name="wav-in">
+  <h1>WAVE audio file input</h1>
+  <p>Read grains from a WAVE audio (<code>.wav</code>) file, creating one NMOS
+  flows with the number of samples-per-frame matched to a grains-per-second
+  rate.</p>
+
+  <h3>Parameters</h3>
+  <div class="param-table">
+  <table>
+   <tr>
+    <th>parameter</th><th>description</th>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+    <td>Name of the node. Also used as source &amp; flow label.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-file"></i> WAV file</td>
+    <td>Path location for the WAVE format input file.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-info-circle"></i> description</td>
+    <td>Optional description of the this NMOS source and output flow.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tablet"></i> device</td>
+    <td>Select or create an NMOS device for this source and flow.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-suitcase"></i> max buffer</td>
+    <td>Maximum number of grains to buffer before overflowing.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-repeat"></i> loop?</td>
+    <td>Should the WAV file be repeated indefinitely?</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-clock-o"></i> regenerate?</td>
+    <td>Should the grain metadata be regenerated locally?</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-heart-o" aria-hidden="true"></i> grains/s</td>
+    <td>How many grains per second to create? 25 and 29.97 are supported.</td>
+   </tr>
+  </table>
+  </div>
+
+  <p>File path locations are relative to the folder where the dynamorse server was
+  started.</p>
+
+  <p>A grains-per-second rate of 29.97 creates a pattern of 1602, 1601, 1602,
+  1601, 1602 samples per grain. This equates to 5 video frames at 30000/1001 or
+  10 frames at 60000/1001.</p>
+
+  <p>Metadata about the audio file, such as the number of channels, bits per sample
+  and sample rate will be extracted from the WAVE file headers and attached as
+  tags to the associated NMOS flow.</p>
+
+  <h3>Maturity</h3>
+  <p>Implemented and partially tested. Awaiting automated testing -
+  <a href="https://github.com/Streampunk/dynamorse/issues/5">status</a>.
+</script>
