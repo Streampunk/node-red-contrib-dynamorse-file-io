@@ -11,7 +11,8 @@
     "codecadon": "^0.0.9",
     "highland": "^2.10.1",
     "kelvinadon": "^0.1.2",
-    "promise": "^7.1.1"
+    "promise": "^7.1.1",
+    "uuid": "^2.0.1"
   },
   "devDependencies": {
     "tape": "^4.2.2"
