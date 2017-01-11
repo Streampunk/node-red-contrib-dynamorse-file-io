@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-dynamorse-file-io",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Dynamorse File IO nodes for Node-RED",
   "author": "Streampunk Media Ltd",
   "license": "Apache-2.0",
@@ -9,7 +9,8 @@
   ],
   "dependencies": {
     "codecadon": "^0.0.9",
-    "kelvinadon" : "^0.1.2",
+    "highland": "^2.10.1",
+    "kelvinadon": "^0.1.2",
     "promise": "^7.1.1"
   },
   "devDependencies": {
