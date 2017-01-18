@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-dynamorse-file-io",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Dynamorse File IO nodes for Node-RED",
   "author": "Streampunk Media Ltd",
   "license": "Apache-2.0",
@@ -22,8 +22,6 @@
   },
   "node-red": {
     "nodes": {
-      "raw-file-in": "nodes/10-raw-file-in.js",
-      "raw-file-out": "nodes/10-raw-file-out.js",
       "cloud-store-in": "nodes/12-cloud-store-in.js",
       "cloud-store-out": "nodes/12-cloud-store-out.js",
       "glob-in": "nodes/14-glob-in.js",
