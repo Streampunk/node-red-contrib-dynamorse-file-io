@@ -88,7 +88,9 @@ module.exports = function (RED) {
     }.bind(this));
     this.done(function () {
       this.log('Let\'s wave goodbye!');
-      this.wavStream.end();
+      this.wavStream.end(function() {
+        this.wsMsg.send({"wavDone": 0})
+      }.bind(this));
     }.bind(this));
   }
   util.inherits(WAVOut, redioactive.Spout);
