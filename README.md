@@ -1,3 +1,4 @@
+[![CircleCI](https://circleci.com/gh/Streampunk/node-red-contrib-dynamorse-file-io.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/Streampunk/node-red-contrib-dynamorse-file-io)
 # node-red-contrib-dynamorse-file-io
 
 A set of nodes for IBM's [Node-RED](http://nodered.org) that support file input/output. This package is a component of Streampunk Media's [dynamorse](https://github.com/Streampunk/node-red-contrib-dynamorse-core#readme) suite.
