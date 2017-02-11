@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -19,29 +19,27 @@ var grainProcessor = require('./grainProcessor.js');
 var H = require('highland');
 
 module.exports = function(srcTags) {
-  var concater = new codecadon.Concater(function() {
+  var concater = new codecadon.Concater(() => {
     console.log('Concater exiting');
   });
 
   var dstSampleSize = concater.setInfo(srcTags);
   var isVideo = srcTags.format[0] === 'video';
 
-  var grainMuncher = function (err, x, push, next) {
+  var grainMuncher = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
     } else if (x === H.nil) {
-      concater.quit(function() {
-        push(null, H.nil);
-      });
+      concater.quit(() => { push(null, H.nil); });
     } else {
       if (Grain.isGrain(x)) {
         var dstBufSize = isVideo ? dstSampleSize : x.getDuration()[0] * dstSampleSize;
         if (isNaN(dstBufSize)) {
-          dstBufSize = x.buffers.reduce(function (x, y) { return x + y.length; }, 0);
+          dstBufSize = x.buffers.reduce((x, y) => x + y.length, 0);
         }
-        var dstBuf = new Buffer(dstBufSize);
-        var numQueued = concater.concat(x.buffers, dstBuf, function(err, result) {
+        var dstBuf = Buffer.allocUnsafe(dstBufSize);
+        var numQueued = concater.concat(x.buffers, dstBuf, (err, result) => {
           if (err) {
             push(err);
           } else if (result) {

@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -89,9 +89,9 @@ module.exports = function (RED) {
     switch (mxfurl.protocol) {
       case 'file:':
         fsaccess(mxfurl.pathname, fs.R_OK)
-        .then(function () {
+        .then(() => {
           node.highland(
-            H(function (push, next) {
+            H((push, next) => {
               push(null, H(fs.createReadStream(mxfurl.pathname)));
               next();
             })
@@ -105,8 +105,8 @@ module.exports = function (RED) {
             .through(klv.trackCacher())
             .through(klv.essenceFilter('picture0'))
             .flatMap(node.extractFlowAndSource.bind(node))
-            .map(function (x) {
-              var grainTime = new Buffer(10);
+            .map(x => {
+              var grainTime = Buffer.allocUnsafe(10);
               grainTime.writeUIntBE(node.baseTime[0], 0, 6);
               grainTime.writeUInt32BE(node.baseTime[1], 6);
               node.baseTime[1] = ( node.baseTime[1] +
@@ -128,7 +128,7 @@ module.exports = function (RED) {
               return new Grain(x.value, grainTime, grainTime, timecode,
                 node.flow.id, node.source.id, node.grainDuration);
             })
-            .errors(function () { })
+            .errors(e => node.warn(e))
           );
         })
         .catch(node.preFlightError);
@@ -164,12 +164,10 @@ module.exports = function (RED) {
     console.log('---', this.flow);
     return H(
       this.nodeAPI.putResource(this.source)
-      .then(function () {
-        return this.nodeAPI.putResource(this.flow);
-      }.bind(this))
-      .then(function () { return x; }));
-    // this.nodeAPI.putResource(this.source).then(function () {
+      .then(() => this.nodeAPI.putResource(this.flow))
+      .then(() => x ));
+    // this.nodeAPI.putResource(this.source).then(() => {
     //   return this.nodeAPI.putResource(this.flow);
-    // }.bind(this)).catch(this.error);
+    // }).catch(this.error);
   }
 }

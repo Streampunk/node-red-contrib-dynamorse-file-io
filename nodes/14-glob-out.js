@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -20,18 +20,18 @@ module.exports = function (RED) {
   function GlobOut (config) {
     RED.nodes.createNode(this, config);
     redioactive.Spout.call(this, config);
-    this.each(function (x, next) {
+    this.each((x, next) => {
       this.log(`Received ${JSON.stringify(x, null, 2)}.`);
       // RED.comms.publish('debug', { msg: JSON.stringify(x, null, 2) });
       next();
-    }.bind(this));
-    this.done(function () {
+    });
+    this.done(() => {
       this.log('Thank goodness that is over!');
-    }.bind(this));
-    this.errors(function (err, next) {
+    });
+    this.errors((err, next) => {
       this.log(`Received error ${err.toString()}.`);
       next();
-    }.bind(this));
+    });
   }
   util.inherits(GlobOut, redioactive.Spout);
   RED.nodes.registerType("glob-out", GlobOut);

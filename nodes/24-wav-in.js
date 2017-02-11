@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ function wavInlet(file, loop, grps) {
   var leftOver = null;
   var pattern = [ 1902 ];
   var nextLen = 0;
-  var wavConsumer = function (err, b, push, next) {
+  var wavConsumer = (err, b, push, next) => {
     if (err) {
       push(err);
       next();
@@ -100,7 +100,7 @@ function wavInlet(file, loop, grps) {
       next();
     }
   };
-  return H(function (push, next) {
+  return H((push, next) => {
       push(null, H(fs.createReadStream(file)));
       next();
     })
@@ -139,11 +139,11 @@ module.exports = function (RED) {
     redioactive.Funnel.call(this, config);
     if (!this.context().global.get('updated'))
       return this.log('Waiting for global context updated.');
-    fs.access(config.file, fs.R_OK, function (e) {
+    fs.access(config.file, fs.R_OK, e => {
       if (e) {
         return this.preFlightError(e);
       }
-    }.bind(this));
+    });
     var node = this;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.blockAlign = 4;
@@ -158,10 +158,10 @@ module.exports = function (RED) {
     var source = new ledger.Source(null, null, localName, localDescription,
       "urn:x-nmos:format:audio", null, null, pipelinesID, null);
     var flowID = uuid.v4();
-    nodeAPI.putResource(source).then(function () {
+    nodeAPI.putResource(source).then(() => {
       this.highland(
         wavInlet(config.file, config.loop, +config.grps)
-        .doto(function (tags) {
+        .doto(tags => {
           if (typeof tags === 'object' && !Buffer.isBuffer(tags)) { // Assume it is tags
             var flow = new ledger.Flow(flowID, null, localName, localDescription,
               "urn:x-nmos:format:audio", tags, source.id, null);
@@ -169,10 +169,10 @@ module.exports = function (RED) {
             this.blockAlign = +tags.blockAlign[0];
             this.sampleRate = +tags.clockRate[0];
           }
-        }.bind(this))
+        })
         .filter(Buffer.isBuffer)
-        .map(function (b) {
-          var grainTime = new Buffer(10);
+        .map(b => {
+          var grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(this.baseTime[0], 0, 6);
           grainTime.writeUInt32BE(this.baseTime[1], 6);
           var grainDuration = [ b.length / this.blockAlign|0, this.sampleRate ];
@@ -182,9 +182,9 @@ module.exports = function (RED) {
             this.baseTime[1] % 1000000000];
           return new Grain([b], grainTime, grainTime, null,
             flowID, source.id, grainDuration);
-        }.bind(this))
+        })
       );
-    }.bind(this), function(err) {
+    }, err => {
       if (err) return node.log(`Unable to register source: ${err}`);
     });
   }

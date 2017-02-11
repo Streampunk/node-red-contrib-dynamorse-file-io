@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -27,28 +27,28 @@ module.exports = function (RED) {
     this.srcFlow = null;
     this.bitsPerSample = 16;
 
-    fs.access(path.dirname(config.file), fs.W_OK, function (e) {
+    fs.access(path.dirname(config.file), fs.W_OK, e => {
       if (e) {
         return this.preFlightError(e);
       }
-    }.bind(this));
+    });
     this.wavStream = fs.createWriteStream(config.file);
     var initState = true;
-    this.wavStream.on('error', function (err) {
+    this.wavStream.on('error', err => {
       this.error(`Failed to write to essence WAV file '${config.file}': ${err}`);
-    }.bind(this));
-    this.each(function (x, next) {
+    });
+    this.each((x, next) => {
       if (!Grain.isGrain(x)) {
         this.warn('Received non-Grain payload.');
         return next();
       }
       this.log(`Received ${util.inspect(x)}.`);
       if (!this.srcFlow) {
-        this.getNMOSFlow(x, function (err, f) {
+        this.getNMOSFlow(x, (err, f) => {
           if (err) return push("Failed to resolve NMOS flow.");
           this.srcFlow = f;
 
-          var h = new Buffer(44);
+          var h = Buffer.allocUnsafe(44);
           h.writeUInt32BE(0x52494646, 0); // RIFF
           h.writeUInt32LE(0xffffffff, 4); // Dummy length to be replaced
           h.writeUInt32BE(0x57415645, 8); // WAVE
@@ -65,39 +65,39 @@ module.exports = function (RED) {
           h.writeUInt16LE(this.bitsPerSample, 34); // Bits per sampls
           h.writeUInt32BE(0x64617461, 36); // data
           h.writeUInt32LE(0xffffffff, 40); // sub-chunk size ... to be fixed
-          this.wavStream.write(h, function () {
+          this.wavStream.write(h, () => {
             var preWriteTime = Date.now();
-            this.wavStream.write(swapBytes(x, this.bitsPerSample), function () {
+            this.wavStream.write(swapBytes(x, this.bitsPerSample), () => {
               if (config.timeout === 0) setImmediate(next);
               else setTimeout(next, config.timeout - (Date.now() - preWriteTime));
             });
-          }.bind(this));
-        }.bind(this));
+          });
+        });
       } else {
         var preWriteTime = Date.now();
-        this.wavStream.write(swapBytes(x, this.bitsPerSample), function () {
+        this.wavStream.write(swapBytes(x, this.bitsPerSample), () => {
           if (config.timeout === 0) setImmediate(next);
           else setTimeout(next, config.timeout - (Date.now() - preWriteTime));
         });
       }
-    }.bind(this));
-    this.errors(function (e, next) {
+    };
+    this.errors((e, next) => {
       this.warn(`Received unhandled error: ${e.message}.`);
       if (config.timeout === 0) setImmediate(next);
       else setTimeout(next, config.timeout);
-    }.bind(this));
-    this.done(function () {
+    });
+    this.done(() => {
       this.log('Let\'s wave goodbye!');
-      this.wavStream.end(function() {
+      this.wavStream.end(() => {
         this.wsMsg.send({"wavDone": 0})
-      }.bind(this));
-    }.bind(this));
+      });
+    });
   }
   util.inherits(WAVOut, redioactive.Spout);
   RED.nodes.registerType("wav-out", WAVOut);
 
   function swapBytes(x, bitsPerSample) {
-    x.buffers.forEach(function (x) {
+    x.buffers.forEach(x => {
       switch (bitsPerSample) {
         case 24:
           var tmp = 0|0;

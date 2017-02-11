@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,38 +17,38 @@ var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var H = require('highland');
 
 module.exports = function(process) {
-  process.on('exit', function() {
+  process.on('exit', () => {
     console.log('Process exiting');
     process.finish();
   });
-  process.on('error', function(err) {
+  process.on('error', err => {
     console.log('Process error: ' + err);
   });
   var dstBufLen = process.start();
 
-  var grainMuncher = function (err, x, push, next) {
+  var grainMuncher = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
     } else if (x === H.nil) {
-      process.quit(function() {
+      process.quit(() => {
         push(null, H.nil);
       });
     } else {
       if (Grain.isGrain(x)) {
-        var dstBuf = new Buffer(dstBufLen);
-        var numQueued = process.doProcess(x.buffers, dstBuf, function(err, result) {
+        var dstBuf = Buffer.allocUnsafe(dstBufLen);
+        var numQueued = process.doProcess(x.buffers, dstBuf, (err, result) => {
           if (err) {
             push(err);
           } else if (result) {
-            push(null, new Grain(result, x.ptpSync, x.ptpOrigin, 
+            push(null, new Grain(result, x.ptpSync, x.ptpOrigin,
                                  x.timecode, x.flow_id, x.source_id, x.duration));
           }
           next();
         });
         // allow a number of packets to queue ahead
-        if (numQueued < 2) { 
-          next(); 
+        if (numQueued < 2) {
+          next();
           }
       } else {
         push(null, x);
