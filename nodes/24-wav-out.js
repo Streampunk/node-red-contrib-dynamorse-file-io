@@ -80,7 +80,7 @@ module.exports = function (RED) {
           else setTimeout(next, config.timeout - (Date.now() - preWriteTime));
         });
       }
-    };
+    });
     this.errors((e, next) => {
       this.warn(`Received unhandled error: ${e.message}.`);
       if (config.timeout === 0) setImmediate(next);
