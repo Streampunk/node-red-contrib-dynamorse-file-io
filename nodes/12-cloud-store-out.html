@@ -19,7 +19,12 @@
     category: 'spout',
     color: '#FDE8C3',
     defaults: {
-      name: { value : "" }
+      name: { value : "" },
+      region: { value : "eu-west-1" },
+      bucket: { value : "" },
+      key: { value : "" },
+      singleStream: { value : false },
+      timeout : { value : 0, validate : RED.validators.number() }
     },
     inputs:1,
     outputs:0,
@@ -36,14 +41,108 @@
     <label for="node-input-name"><i class="fa fa-tag"></i> name</label>
     <input type="text" id="node-input-name" placeholder="Name">
   </div>
+  <div class="form-row"> <!-- TODO Consider changing to a drop down choice list. -->
+   <label for="node-input-region"><i class="fa fa-globe" aria-hidden="true"></i> region</label>
+   <input type="text" id="node-input-region">
+  </div>
+  <div class="form-row">
+   <label for="node-input-bucket"><i class="fa fa-archive" aria-hidden="true"></i> bucket</label>
+   <input type="text" id="node-input-bucket" placeholder="bucket">
+  </div>
+  <div class="form-row">
+   <label for="node-input-key"><i class="fa fa-key" aria-hidden="true"></i> key</label>
+   <input type="text" id="node-input-key" placeholder="flowKey">
+  </div>
+  <div class="form-row">
+   <label for="node-input-singleStream"><i class="fa fa-shower" aria-hidden="true"></i> single stream?</label>
+   <input type="checkbox" id="node-input-singleStream">
+  </div>
+  <div class="form-row">
+    <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
+    <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
+  </div>
 </script>
+
+<style>
+.param-table table, th, td {
+  vertical-align: top;
+  padding: 3px;
+}
+</style>
 
 <script type="text/x-red" data-help-name="cloud-store-out">
   <h1>Cloud store output</h1>
-  <p>Write an object or objects that are sequence of concatenated payloads for
-  grains.</p>
+  <p>Write an object or objects that are sequence of payloads for grains to an
+  AWS S3-style interface cloud store. Objects are stored with metadata that allows them
+  to be recreated using the partner <em>cloud-store-in</em> node without loss
+  of grain metadata.</p>
+
+  <p>Prior to using this capability, security credentials must have been
+  established so that Node.JS, and hence Node-RED, can access the buckets of an
+  assocatied AWS account. This could be by creating a local file called
+  <code>~/.aws/credentials</code> or by assigning an IAM role with S3 write
+  permissions. See the AWS documentation on <a href="http://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-credentials-node.html">
+  Setting Credntials in Node.js</a>.</p>
+
+  <p>The bucket that is to be used must already have been created.</p>
+
+  <p>The <em>single stream</em> strategy will pipe grain data to the cloud as it arrives
+  as a single stream and then close the stream. A single object will be created
+  using the name of the <em>key</em> property. This approach is suitable
+  for lower bitrate streams such as audio or highly compressed video. For variable
+  bitrate streams, a parallel index object will be created with the size of each
+  grain payload.</p>
+
+  <p>For uncompressed and/or higher bitrate streams, it is recommended that an
+  object per grain strategy is used by unsetting the <em>single stream</em> flag.
+  In this case, the assocatied bucket will be filled with many, many objects. The name
+  of these object will be a reversed hexidecimal frame number followed by the
+  <em>key</em>. AWS instances with high bandwith networking are
+  required for HD material with performance higher than <em>High</em>, e.g.
+  <em>Up To 10Gbps</em>. This is to ensure that the objects are spread
+  across as many spindles as possible. For more details of efficient naming in
+  AWS, see the documentation on <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">
+  Request and Performance Considerations</a>.</p>
+
+  <h3>Parameters</h3>
+  <div class="param-table">
+  <table>
+   <tr>
+    <th>parameter</th><th>description</th>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+    <td>Name of the node.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-globe" aria-hidden="true"></i> region</td>
+    <td>Region in S3 to use.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-archive" aria-hidden="true"></i> bucket</td>
+    <td>Name of the S3 bucket where the grain payloads are to be stored.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-key" aria-hidden="true"></i> key</i></td>
+    <td>Object key to name the object or sequence of objects.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-shower" aria-hidden="true"></i> single stream?</td>
+    <td>Should the grain payloads by concatenated in a single stream?
+    Otherwise, separate objects are used.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-clock-o"></i> timeout</td>
+    <td>Time to wait between writing each grain. Controls the back-pressure.</td>
+   </tr>
+  </table>
+  </div>
+
+  <p>Note that this interface does not use the S3 HTTP/S interface directly,
+  relying instead on the official <a href="https://www.npmjs.com/package/aws-sdk">
+  AWS Javascript SDK module <code>aws-sdk</code></a>.</p>
 
   <h3>Maturity</h3>
-  <p>Not implemented -
+  <p>Implementation in progress -
   <a href="https://github.com/Streampunk/dynamorse/issues/7">status</a>.
 </script>

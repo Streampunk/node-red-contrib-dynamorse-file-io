@@ -8,6 +8,7 @@
     "node-red"
   ],
   "dependencies": {
+    "aws-sdk": "^2.63.0",
     "codecadon": "^0.1.0",
     "highland": "^2.10.1",
     "kelvinadon": "^0.1.2",
