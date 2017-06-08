@@ -24,7 +24,9 @@
       bucket: { value : "" },
       key: { value : "" },
       singleStream: { value : false },
-      timeout : { value : 0, validate : RED.validators.number() }
+      partSize: { value : 5, validate : RED.validators.number() },
+      queueSize: { value : 4, validate : RED.validators.number() },
+      timeout: { value : 0, validate : RED.validators.number() }
     },
     inputs:1,
     outputs:0,
@@ -60,6 +62,12 @@
   <div class="form-row">
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
     <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
+  </div>
+  <div class="form-row">
+    <label for="node-input-partSize"><i class="fa fa-puzzle-piece" aria-hidden="true"></i> part size</label>
+    <input type="number" min="0" id="node-input-partSize" placeholder="5" style="width: 100px">&nbsp;
+    <label for="node-input-queueSize"><i class="fa fa-fighter-jet" aria-hidden="true"></i> queue size</label>
+    <input type="number" min="1" id="node-input-queueSize" placeholder="4" style="width: 100px">
   </div>
 </script>
 
@@ -134,6 +142,14 @@
    <tr>
     <td><i class="fa fa-clock-o"></i> timeout</td>
     <td>Time to wait between writing each grain. Controls the back-pressure.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-puzzle-piece" aria-hidden="true"></i> part size</td>
+    <td>Size of upload chunk when uploading to S3, measured in megabytes.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-fighter-jet" aria-hidden="true"></i> queue size</td>
+    <td>Number of concurrent streams to use for upload. Set to 1 for synchronous.</td>
    </tr>
   </table>
   </div>

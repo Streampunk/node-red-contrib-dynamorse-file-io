@@ -23,7 +23,7 @@ module.exports = function (RED) {
   function RawFileOut (config) {
     RED.nodes.createNode(this, config);
     redioactive.Spout.call(this, config);
-    console.log(util.inspect(config));
+    // console.log(util.inspect(config));
     fs.access(path.dirname(config.file), fs.W_OK, e => {
       if (e) {
         return this.preFlightError(e);
@@ -58,8 +58,8 @@ module.exports = function (RED) {
       this.log(`Received ${util.inspect(x)}.`);
       var preWriteTime = Date.now();
       this.essenceStream.write(x.buffers[0], function () {
-        if (config.timeout === 0) setImmediate(next);
-        else setTimeout(next, config.timeout - (Date.now() - preWriteTime));
+        if (+config.timeout === 0) setImmediate(next);
+        else setTimeout(next, +config.timeout - (Date.now() - preWriteTime));
       });
       if (this.headerStream) {
         if (this.started === false) {
@@ -95,8 +95,8 @@ module.exports = function (RED) {
     });
     this.errors((e, next) => {
       this.warn(`Received unhandled error: ${e.message}.`);
-      if (config.timeout === 0) setImmediate(next);
-      else setTimeout(next, config.timeout);
+      if (+config.timeout === 0) setImmediate(next);
+      else setTimeout(next, +config.timeout);
     });
     this.done(() => {
       this.log('Thank goodness that is over!');
