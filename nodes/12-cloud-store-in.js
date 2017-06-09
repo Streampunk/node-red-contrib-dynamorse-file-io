@@ -15,12 +15,24 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
+var AWS = require('aws-sdk');
+var Grain = require('node-red-contrib-dynamorse-core').Grain;
+var grainConcater = require('../util/grainConcater.js');
+var Promise = require('promise');
+var util = require('util');
 
 module.exports = function (RED) {
   function CloudStoreIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
-    // Go figure
+    console.log(util.inspect(config));
+    var s3 = new AWS.S3({ region : config.region });
+    s3.headBucket({ Bucket : config.bucket }, e => {
+      if (e) {
+        return this.preFlightError(`Error accessing bucket: ${e}`);
+      }
+    });
+
   }
   util.inherits(CloudStoreIn, redioactive.Funnel);
   RED.nodes.registerType("cloud-store-in", CloudStoreIn);

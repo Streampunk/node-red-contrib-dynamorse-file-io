@@ -19,6 +19,7 @@ var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var AWS = require('aws-sdk');
 var Promise = require('Promise');
 var stream = require('stream');
+var uuid = require('uuid');
 
 module.exports = function (RED) {
   function CloudStoreOut (config) {
@@ -50,6 +51,14 @@ module.exports = function (RED) {
             var contentType = `${md.format}/${md.encodingName}`;
             delete md.format;
             delete md.encodingName;
+            md.grainSize = `${x.buffers[0].length}`;
+            md.startTimeOrigin = Grain.prototype.formatTimestamp(x.ptpOrigin);
+            md.startTimeSync = Grain.prototype.formatTimestamp(x.ptpSync);
+            md.flowID = uuid.unparse(x.flow_id);
+            md.sourceID = uuid.unparse(x.flow_id);
+            if (x.duration) {
+              md.duration = Grain.prototype.formatDuration(x.duration);
+            }
             var upload = s3.upload({
               Bucket: config.bucket,
               Key: config.key,
