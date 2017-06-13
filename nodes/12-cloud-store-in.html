@@ -20,6 +20,7 @@
     color: '#FDE8C3',
     defaults: {
       name: { value : "" },
+      description: { value: "" },
       maxBuffer : { value : 10, validate : RED.validators.number() },
       region: { value : "eu-west-1" },
       bucket: { value : "" },
@@ -49,6 +50,10 @@
   <div class="form-row">
     <label for="node-input-name"><i class="fa fa-tag"></i> name</label>
     <input type="text" id="node-input-name" placeholder="name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
+    <input type="text" id="node-input-description" placeholder="source and flow description">
   </div>
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
@@ -121,6 +126,10 @@
    <tr>
     <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
     <td>Name of the node.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-info-circle"></i> description</td>
+    <td>Optional description of the output NMOS source and flow.</td>
    </tr>
    <tr>
     <td><i class="fa fa-suitcase"></i> max buffer</td>

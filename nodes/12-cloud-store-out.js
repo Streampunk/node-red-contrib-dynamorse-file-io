@@ -47,10 +47,21 @@ module.exports = function (RED) {
               return reject(err);
             }
             var md = {};
-            Object.keys(f.tags).forEach(x => { md[x] = f.tags[x][0]; });
-            var contentType = `${md.format}/${md.encodingName}`;
-            delete md.format;
-            delete md.encodingName;
+            var contentType = '';
+            var encodingName = f.tags.encodingName[0];
+            if ((f.tags.packing[0]).toLowerCase() === 'v210') {
+              encodingName = 'x-v210';
+            }
+            if (f.tags.format[0] === 'video' &&
+                (encodingName === 'raw' || encodingName === 'x-v210')) {
+              contentType = `video/${encodingName}; sampling=${f.tags.sampling[0]}; ` +
+                `width=${f.tags.width[0]}; height=${f.tags.height[0]}; depth=${f.tags.depth[0]}; ` +
+                `colorimetry=${f.tags.colorimetry[0]}; interlace=0`; //${f.tags.interlace[0]}`;
+            } else {
+              contentType = `${f.tags.format}/${f.tags.encodingName}`;
+              if (f.tags.clockRate) contentType += `; rate=${f.tags.clockRate[0]}`;
+              if (f.tags.channels) contentType += `; channels=${f.tags.channels[0]}`;
+            }
             md.grainSize = `${x.buffers[0].length}`;
             md.startTimeOrigin = Grain.prototype.formatTimestamp(x.ptpOrigin);
             md.startTimeSync = Grain.prototype.formatTimestamp(x.ptpSync);
