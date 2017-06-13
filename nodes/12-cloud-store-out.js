@@ -49,7 +49,8 @@ module.exports = function (RED) {
             var md = {};
             var contentType = '';
             var encodingName = f.tags.encodingName[0];
-            if ((f.tags.packing[0]).toLowerCase() === 'v210') {
+            console.log(f.tags);
+            if (f.tags.packing && f.tags.packing[0].toLowerCase() === 'v210') {
               encodingName = 'x-v210';
             }
             if (f.tags.format[0] === 'video' &&

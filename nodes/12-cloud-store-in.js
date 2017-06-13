@@ -21,6 +21,10 @@ var grainConcater = require('../util/grainConcater.js');
 var Promise = require('promise');
 var util = require('util');
 var grainConcater = require('../util/grainConcater.js');
+var uuid = require('uuid');
+var H = require('highland');
+
+const emptyBuf = Buffer.alloc(0);
 
 function cloudInlet(s3, objectDetails, sizes, loop) {
   var flowID = uuid.v4();
@@ -110,6 +114,7 @@ module.exports = function (RED) {
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.duration = [ 1, 25 ];
     this.chunksize = 1920 * 2;
+    this.tags = {};
     s3.headBucket({ Bucket : config.bucket }).promise()
     .then(() => {
       return s3.headObject({
@@ -120,32 +125,32 @@ module.exports = function (RED) {
       var localName = config.name || `${config.type}-${config.id}`;
       var localDescription = config.description || `${config.type}-${config.id}`;
       this.metadata = o.Metadata;
-      this.chunksize = +this.meadata.chunksize;
+      this.chunksize = +this.metadata.grainsize;
       if (isNaN(this.chunksize)) {
         return Promise.reject('Received chunksize that is non-numerical.');
       }
       var pipelinesID = config.device ?
         RED.nodes.getNode(config.device).nmos_id :
-        node.context().global.get('pipelinesID');
-      var tags = makeTags(o.ContentType);
-      if (config.regenerate === true && metadata.starttimesync) {
-        var m = metadata.starttimesync.match(/^([0-9]+):([0-9]+)$/);
+        this.context().global.get('pipelinesID');
+      this.tags = makeTags(o.ContentType);
+      if (config.regenerate === true && this.metadata.starttimesync) {
+        var m = this.metadata.starttimesync.match(/^([0-9]+):([0-9]+)$/);
         this.baseTime[0] = +m[1];
         this.baseTime[1] = +m[2];
       }
-      if (metadat.duration) {
-        var m = metadata.duration.match(/^([0-9]+)\/([0-9]+)$/);
+      if (this.metadata.duration) {
+        var m = this.metadata.duration.match(/^([0-9]+)\/([0-9]+)$/);
         this.duration[0] = +m[1];
         this.duration[1] = +m[2];
       }
       this.source = new ledger.Source(
         (config.regenerate === false && this.metadata.sourceid) ? o.sourceid : null,
         null, localName, localDescription,
-        "urn:x-nmos:format:" + tags.format[0], null, null, pipelinesID, null);
+        "urn:x-nmos:format:" + this.tags.format[0], null, null, pipelinesID, null);
       this.flow = new ledger.Flow(
         (config.regenerate === false && this.metadata.flowid) ? this.metadata.flowid : null,
         null, localName, localDescription,
-        "urn:x-nmos:format:" + tags.format[0], tags, this.source.id,
+        "urn:x-nmos:format:" + this.tags.format[0], this.tags, this.source.id,
         (config.regenerate === true && o.metadata.flowid) ? [ this.metadata.flowid ] : []);
       return nodeAPI.putResource(this.source)
         .then(nodeAPI.putResource(this.flow));
@@ -165,8 +170,8 @@ module.exports = function (RED) {
             this.duration[0] * 1000000000 / this.duration[1]|0);
           this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
             this.baseTime[1] % 1000000000];
-          return new Grain([ g.buffers ], grainTime, grainTime, null,
-            this.flow.id, the.source.id, duration);
+          return new Grain(g.buffers, grainTime, grainTime, null,
+            this.flow.id, this.source.id, this.duration);
         })
         .pipe(grainConcater(this.tags)));
     })
@@ -191,7 +196,7 @@ function makeTags(ct) {
     tags.packing = ( mime[2] === 'x-v210' ) ? [ 'v210' ] : [ 'pgroup' ];
     console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
   }
-  var parameters = contentType.match(/\b(\w+)=(\S+)\b/g);
+  var parameters = ct.match(/\b(\w+)=(\S+)\b/g);
   parameters.forEach(p => {
     var splitP = p.split('=');
     if (splitP[0] === 'rate') splitP[0] = 'clockRate';

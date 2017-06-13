@@ -114,8 +114,9 @@
 
   <p>The bucket and objects that are to be read must already have been created.</p>
 
-  <p>Whether the stream was laid down as separate grains or as a single continuous
-  item will be determined automatically.</p>
+  <p>If the chunk size for the stream is sufficiently large (greater than 100000
+  bytes) then the stream will be read in chunks in parallel. Configure this using
+  the <em>queue size</em> parameter.</p>
 
   <h3>Parameters</h3>
   <div class="param-table">
@@ -165,6 +166,8 @@
   <p>Note that this interface does not use the S3 HTTP/S interface directly,
   relying instead on the official <a href="https://www.npmjs.com/package/aws-sdk">
   AWS Javascript SDK module <code>aws-sdk</code></a>.</p>
+
+  <p>Streams of variable bitrate are not yet supported.</p>
 
   <h3>Maturity</h3>
   <p>Implementation is progress -

@@ -23,7 +23,6 @@
       region: { value : "eu-west-1" },
       bucket: { value : "" },
       key: { value : "" },
-      singleStream: { value : false },
       partSize: { value : 5, validate : RED.validators.number() },
       queueSize: { value : 4, validate : RED.validators.number() },
       timeout: { value : 0, validate : RED.validators.number() }
@@ -71,10 +70,6 @@
    <input type="text" id="node-input-key" placeholder="flowKey">
   </div>
   <div class="form-row">
-   <label for="node-input-singleStream"><i class="fa fa-shower" aria-hidden="true"></i> single stream?</label>
-   <input type="checkbox" id="node-input-singleStream">
-  </div>
-  <div class="form-row">
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
     <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
   </div>
@@ -109,23 +104,9 @@
 
   <p>The bucket that is to be used must already have been created.</p>
 
-  <p>The <em>single stream</em> strategy will pipe grain data to the cloud as it arrives
-  as a single stream and then close the stream. A single object will be created
-  using the name of the <em>key</em> property. This approach is suitable
-  for lower bitrate streams such as audio or highly compressed video. For variable
-  bitrate streams, a parallel index object will be created with the size of each
-  grain payload.</p>
-
-  <p>For uncompressed and/or higher bitrate streams, it is recommended that an
-  object per grain strategy is used by unsetting the <em>single stream</em> flag.
-  In this case, the assocatied bucket will be filled with many, many objects. The name
-  of these object will be a reversed hexidecimal frame number followed by the
-  <em>key</em>. AWS instances with high bandwith networking are
-  required for HD material with performance higher than <em>High</em>, e.g.
-  <em>Up To 10Gbps</em>. This is to ensure that the objects are spread
-  across as many spindles as possible. For more details of efficient naming in
-  AWS, see the documentation on <a href="http://docs.aws.amazon.com/AmazonS3/latest/dev/request-rate-perf-considerations.html">
-  Request and Performance Considerations</a>.</p>
+  <p>The AWS SDK provides a parallel upload facility for streams of unknown
+  length and to improve performance. Configure this using the <em>part size</em>
+  and <em>queue size</em> properties.</p>
 
   <h3>Parameters</h3>
   <div class="param-table">
@@ -150,11 +131,6 @@
     <td>Object key to name the object or sequence of objects.</td>
    </tr>
    <tr>
-    <td><i class="fa fa-shower" aria-hidden="true"></i> single stream?</td>
-    <td>Should the grain payloads by concatenated in a single stream?
-    Otherwise, separate objects are used.</td>
-   </tr>
-   <tr>
     <td><i class="fa fa-clock-o"></i> timeout</td>
     <td>Time to wait between writing each grain. Controls the back-pressure.</td>
    </tr>
@@ -172,6 +148,8 @@
   <p>Note that this interface does not use the S3 HTTP/S interface directly,
   relying instead on the official <a href="https://www.npmjs.com/package/aws-sdk">
   AWS Javascript SDK module <code>aws-sdk</code></a>.</p>
+
+  <p>Streams of variable bitrate are not yet supported.</p>
 
   <h3>Maturity</h3>
   <p>Implementation in progress -
