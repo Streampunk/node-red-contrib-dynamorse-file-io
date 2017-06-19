@@ -45,7 +45,7 @@ module.exports = function (RED) {
       this.log(`Received ${util.inspect(x)}.`);
       if (!this.srcFlow) {
         this.getNMOSFlow(x, (err, f) => {
-          if (err) return push("Failed to resolve NMOS flow.");
+          if (err) return this.error("Failed to resolve NMOS flow.");
           this.srcFlow = f;
 
           var h = Buffer.allocUnsafe(44);
