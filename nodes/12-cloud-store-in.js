@@ -26,7 +26,7 @@ var H = require('highland');
 
 const emptyBuf = Buffer.alloc(0);
 
-function cloudInlet(s3, objectDetails, sizes, loop) {
+function cloudInlet(s3, objectDetails, sizes, loop, length, queueSize) {
   var flowID = uuid.v4();
   var sourceID = uuid.v4();
   var bufs = [];
@@ -44,6 +44,7 @@ function cloudInlet(s3, objectDetails, sizes, loop) {
         if (x.length >= desired) {
           bufs.push(x.slice(0, desired));
           push(null, new Grain(bufs, 0, 0, null, flowID, sourceID, null));
+          grainCount++;
           x = x.slice(desired);
           bufs = [];
           desired = sizes;
@@ -88,14 +89,30 @@ function cloudInlet(s3, objectDetails, sizes, loop) {
       next();
     }
   };
+  var chunkCount = 0;
+  var position = 0;
+  var chunkMode = (typeof sizes === 'number') && (sizes > 1000000);
+  var totalChunks = (chunkMode === true) ? length / sizes|0 : 1;
+  var parallels = (chunkMode === true) ?  queueSize : 1;
+  var streamCount = 0;
   return H((push, next) => {
+    if (chunkMode === true) {
+      var leftOffset = (chunkCount * sizes) % length;
+      var rightOffset = leftOffset + sizes - 1;
+      objectDetails.Range = `bytes=${leftOffset}-${rightOffset}`;
+      push(null, H(s3.getObject(objectDetails).createReadStream()));
+      streamCount++;
+      chunkCount++;
+    } else {
       push(null, H(s3.getObject(objectDetails).createReadStream()));
       grainCount = 0;
-      next();
-    })
-    .take(loop ? Number.MAX_SAFE_INTEGER : 1)
-    .sequence()
-    .consume((typeof sizes === 'number') ? fixedChomper : variableChomper);
+    }
+    next();
+  })
+  .take(loop ? Number.MAX_SAFE_INTEGER : totalChunks)
+  .parallel(parallels)
+  .consume((typeof sizes === 'number') ? fixedChomper : variableChomper)
+  .doto(() => { console.log('Finished a stream.', streamCount--)});
 }
 
 module.exports = function (RED) {
@@ -115,6 +132,7 @@ module.exports = function (RED) {
     this.duration = [ 1, 25 ];
     this.chunksize = 1920 * 2;
     this.tags = {};
+    this.contentLength = 0;
     s3.headBucket({ Bucket : config.bucket }).promise()
     .then(() => {
       return s3.headObject({
@@ -126,6 +144,7 @@ module.exports = function (RED) {
       var localDescription = config.description || `${config.type}-${config.id}`;
       this.metadata = o.Metadata;
       this.chunksize = +this.metadata.grainsize;
+      this.contentLength = o.ContentLength;
       if (isNaN(this.chunksize)) {
         return Promise.reject('Received chunksize that is non-numerical.');
       }
@@ -161,7 +180,7 @@ module.exports = function (RED) {
     .then(() => {
       this.highland(
         cloudInlet(s3, { Bucket: config.bucket, Key: config.key },
-          this.chunksize, config.loop)
+          this.chunksize, config.loop, this.contentLength, config.queueSize)
         .map(g => {
           var grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(this.baseTime[0], 0, 6);
