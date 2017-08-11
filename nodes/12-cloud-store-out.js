@@ -17,7 +17,7 @@ var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var AWS = require('aws-sdk');
-var Promise = require('Promise');
+var Promise = require('promise');
 var stream = require('stream');
 var uuid = require('uuid');
 
