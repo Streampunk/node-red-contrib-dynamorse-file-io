@@ -22,6 +22,7 @@ var grainConcater = require('../util/grainConcater.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var H = require('highland');
 var uuid = require('uuid');
+var mm = require('micromatch');
 
 
 module.exports = function (RED) {
@@ -56,8 +57,26 @@ module.exports = function (RED) {
       [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
       [ '.', config.glob];
     pathParts[1] = (pathParts[1].length === 0) ? '*' : pathParts[1];
+    // node.log(pathParts);
 
-    fsaccess(config.pathParts[0], fs.R_OK)
+    // console.log(config);
+
+    switch (config.encodingName) {
+      case 'raw':
+      case 'h264':
+      case 'smpte291':
+        config.format = 'video';
+        break;
+      case 'L16':
+      case 'L24':
+        config.format = 'audio';
+        break;
+      default:
+        config.format = 'application';
+        break;
+    }
+
+    fsaccess(pathParts[0], fs.R_OK)
     .then(() => {
       if (config.header) {
         return fsaccess(config.header, fs.R_OK);
@@ -100,7 +119,7 @@ module.exports = function (RED) {
     })
     .then(tags => {
       if (!tags) {
-        console.log("Failed to read tags");
+        node.log("Failed to read tags - trying via configuration.");
         return node.sdpURLReader(config);
       } else {
         return tags;
@@ -108,6 +127,7 @@ module.exports = function (RED) {
     })
     .then(tags => {
       node.tags = tags;
+      console.log(tags);
       var localName = config.name || `${config.type}-${config.id}`;
       var localDescription = config.description || `${config.type}-${config.id}`;
       var pipelinesID = config.device ?
@@ -122,6 +142,7 @@ module.exports = function (RED) {
         null, localName, localDescription,
         "urn:x-nmos:format:" + node.tags.format[0], node.tags, node.source.id,
         (config.regenerate === true && node.headers.length > 0) ? [ node.headers[0].flow_id ] : []);
+      console.log(node.source);
       return nodeAPI.putResource(node.source)
         .then(() => nodeAPI.putResource(node.flow));
     })
@@ -130,13 +151,13 @@ module.exports = function (RED) {
       node.highland(
         H((push, next) => {
           if (config.loop || readLoop++ === 0) {
-            push(null, pathParts[0]); next(); 
+            push(null, pathParts[0]); next();
           } else {
             push(null, H.nil);
           };
         })
         .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
-        .map(x => readFile(pathParts + '/' + x))
+        .map(x => readFile(pathParts[0] + '/' + x))
         .parallel(10)
         .map(g => {
           // TODO Only regenerate for now
@@ -147,7 +168,7 @@ module.exports = function (RED) {
           var grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(node.baseTime[0], 0, 6);
           grainTime.writeUInt32BE(node.baseTime[1], 6);
-          var grainDuration = g.getDuration();
+          var grainDuration = 'wibble'; // TODO g.getDuration();
           if (isNaN(grainDuration[0])) grainDuration = node.configDuration;
           node.baseTime[1] = ( node.baseTime[1] +
             grainDuration[0] * 1000000000 / grainDuration[1]|0 );
@@ -155,7 +176,7 @@ module.exports = function (RED) {
             node.baseTime[1] % 1000000000];
           return new Grain([g], grainTime,
             (node.headers.length === 0) ? grainTime : g.ptpOrigin,
-            g.timecode, node.flow.id, node.source.id, g.duration);
+            g.timecode, node.flow.id, node.source.id, grainDuration);
         })
         // .pipe(grainConcater(node.tags))
       );

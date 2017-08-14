@@ -120,6 +120,21 @@ module.exports = function (RED) {
     this.configDuration = [ +config.grainDuration.split('/')[0],
                             +config.grainDuration.split('/')[1] ];
 
+    switch (config.encodingName) {
+      case 'raw':
+      case 'h264':
+      case 'smpte291':
+        config.format = 'video';
+        break;
+      case 'L16':
+      case 'L24':
+        config.format = 'audio';
+        break;
+      default:
+        config.format = 'application';
+        break;
+    }
+
     fsaccess(config.file, fs.R_OK)
     .then(() => {
       if (config.headers) {
@@ -163,7 +178,7 @@ module.exports = function (RED) {
     })
     .then(tags => {
       if (!tags) {
-        console.log("Failed to read tags");
+        node.log("Failed to read tags - trying via configuration.");
         return node.sdpURLReader(config);
       } else {
         return tags;
