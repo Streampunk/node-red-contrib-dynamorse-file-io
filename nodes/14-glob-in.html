@@ -19,8 +19,32 @@
     category: 'funnel',
     color: '#FDE8C3',
     defaults: {
-      name : { value : "" },
-      maxBuffer : { value : 10, validate : RED.validators.number() }
+      name: { value : '' },
+      glob : { value : '', required : true },
+      grainDuration : { value : "0/1", validate : function (v) {
+        var slashed = v.split('/');
+        return slashed.length === 2 && !isNaN(+slashed[0]) && !isNaN(+slashed[1])
+          && slashed[0] >=0 && slashed[1] > 0;
+      } },
+      header : { value : '' },
+      loop : { value : false },
+      regenerate : { value : false },
+      description : { value : '' },
+      device : { value : '', type : 'device' },
+      maxBuffer : { value : 10, validate : RED.validators.number() },
+      sdpURL : { value : "" },
+      encodingName : { value : "raw" },
+      clockRate : { value : 90000, validate : RED.validators.number() },
+      sampling : { value : "YCbCr-4:2:2" },
+      width : { value : 1920, validate : RED.validators.number() },
+      height : { value : 1080, validate : RED.validators.number() },
+      depth : { value : 10, validate : RED.validators.number() },
+      colorimetry : { value : "BT709-2" },
+      interlace : { value : false },
+      packing : { value : "pgroup" },
+      channels : { value : 0, validate : RED.validators.number() },
+      bitrate : { value : 0, validate : RED.validators.number() },
+      wsPort : { value : 0, validate : RED.validators.number() }
     },
     inputs:0,
     outputs:1,
@@ -32,23 +56,283 @@
 </script>
 
 <script type="text/x-red" data-template-name="glob-in">
+  <!-- Common to all funnel nodes -->
   <div class="form-row">
-    <label for="node-input-folder"><i class="fa fa-folder"></i> Folder</label>
-    <input type="text" id="node-input-folder" placeholder=".">
+    <label for="node-input-name"><i class="fa fa-tag"></i> name</label>
+    <input type="text" id="node-input-name" placeholder="name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-glob"><i class="fa fa-files-o" aria-hidden="true"></i> glob</label>
+    <input type="text" id="node-input-glob" placeholder="dynamorse_*.v210">
+  </div>
+  <div class="form-row">
+    <label for="node-input-grainDuration"><i class="fa fa-tint" aria-hidden="true"></i> duration</label>
+    <input type="text" id="node-input-grainDuration" placeholder="0/1" style="width: 120px">
+  </div>
+  <div class="form-row">
+    <label for="node-input-header"><i class="fa fa-file-text" aria-hidden="true"></i> header</label>
+    <input type="text" id="node-input-headers" placeholder="dynamorse.json">
+  </div>
+  <div class="form-row">
+    <label for="node-input-loop"><i class="fa fa-repeat"></i> loop?</label>
+    <input type="checkbox" id="node-input-loop" style="width: 100px">
+    <label for="node-input-regenerate"><i class="fa fa-clock-o"></i> regenerate?</label>
+    <input type="checkbox" id="node-input-regenerate" style="width: 100px">
+  </div>
+  <div class="form-row">
+    <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
+    <input type="text" id="node-input-description" placeholder="source and flow description">
+  </div>
+  <div class="form-row">
+    <label for="node-input-device"><i class="fa fa-tablet"></i> device</label>
+    <input type="text" id="node-input-device">
   </div>
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
     <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
   </div>
+  <!-- Media-specific properties, either derived from an SDP file or given parameters -->
+  <p>Describe the stream with headers, an SDP file or by providing parameters.</p>
+  <div class="form-row">
+    <label for="node-input-sdpURL"><i class="fa fa-external-link-square"></i> SDP URL</label>
+    <input type="text" id="node-input-sdpURL" placeholder="file:video.sdp">
+  </div>
+  <div class="form-row">
+    <label for="node-input-encodingName" style="width: 120px"><i class="fa fa-map-signs">
+      </i> encoding name</label>
+    <select id="node-input-encodingName">
+      <option value="raw" selected>video/raw</option>
+      <option value="h264">video/H264</option>
+      <option value="L16">audio/L16</option>
+      <option value="L24">audio/L24</option>
+      <option value="smpte291">video/smpte291</option>
+      <option value="x-v210">video/x-v210</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label><i class="fa fa-arrows"></i> dimensions</label>
+    <label for="node-input-width" style="text-align: right">width</label>
+    <input type="number" min="0" id="node-input-width" placeholder="1920"
+      style="width: 80px" list="widths">
+    <label for="node-input-height" style="text-align: right">height</label>
+    <input type="number" min="0" id="node-input-height" placeholder="1080"
+      style="width: 80px" list="heights">
+    <datalist id="widths">
+      <option value="720"/>
+      <option value="800"/>
+      <option value="1024"/>
+      <option value="1280"/>
+      <option value="1440"/>
+      <option value="1600"/>
+      <option value="1920"/>
+      <option value="2560"/>
+      <option value="3840"/>
+    </datalist>
+    <datalist id="heights">
+      <option value="576"/>
+      <option value="600"/>
+      <option value="768"/>
+      <option value="720"/>
+      <option value="900"/>
+      <option value="1080"/>
+      <option value="1440"/>
+      <option value="2160"/>
+    </datalist>
+  </div>
+  <div class="form-row">
+    <label for="node-input-clockRate"><i class="fa fa-heartbeat"></i> clock rate</label>
+    <input type="number" id="node-input-clockRate" min="0" list="rates"
+      placeholder="90000" style="width: 80px">
+    <datalist id="rates">
+      <option value="90000">
+      <option value="48000">
+    </datalist>
+    <label for="node-input-sampling" style="text-align: left">&nbsp;<i class="fa fa-eye"></i> sampling</label>
+    <select id="node-input-sampling" style="width: 120px">
+      <option value="RGB">RGB</option>
+      <option value="RGBA">RGBA</option>
+      <option value="BGR">BGR</option>
+      <option value="BGRA">BGRA</option>
+      <option value="YCbCr-4:4:4">YCbCr-4:4:4</option>
+      <option value="YCbCr-4:2:2" selected>YCbCr-4:2:2</option>
+      <option value="YCbCr-4:2:0">YCbCr-4:2:0</option>
+      <option value="YCbCr-4:1:1">YCbCr-4:1:1</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-depth"><i class="fa fa-picture-o"></i> depth</label>
+    <input type="number" min="8" placeholder="10" id="node-input-depth" style="width: 80px">
+    <label for="node-input-colorimetry" style="text-align: left">
+      &nbsp;<i class="fa fa-pencil-square-o"></i> colorimetry</label>
+    <select id="node-input-colorimetry" style="width: 120px">
+      <option value="BT601-5">BT601-5</option>
+      <option value="BT709-2" selected>BT709-2</option>
+      <option value="SMPTE240M">SMPTE240M</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-interlace"><i class="fa fa-bars"></i> interlace?</label>
+    <input type="checkbox" id="node-input-interlace" style="width: 95px">
+    <label for="node-input-packing" style="text-align: left">
+      &nbsp;<i class="fa fa-briefcase"></i> packing</label>
+    <select id="node-input-packing" style="width: 140px">
+      <option value="v210">V210</option>
+      <option value="pgroup" selected>RFC4175 pgroup</option>
+      <option value="audio">RFC3190 audio</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-channels"><i class="fa fa-music"></i> channels</label>
+    <input type="number" min="0" placeholder="0" id="node-input-channels" style="width: 80px">
+    <label for="node-input-bitrate" style="text-align: left">
+      &nbsp;<i class="fa fa-long-arrow-right"></i> bitrate</label>
+    <input type="number" min="0" placeholder="0" id="node-input-bitrate" style="width: 80px">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-wsPort"><i class="fa fa-eye"></i> websock port</label>
+    <input type="text" id="node-input-wsPort" readonly placeholder="0">
+  </div>
 </script>
+
+<style>
+.param-table table, th, td {
+  vertical-align: top;
+  padding: 3px;
+}
+</style>
 
 <script type="text/x-red" data-help-name="glob-in">
   <h1>Files-by-glob input</h1>
   <p>Read grain payloads from a sequence of files in a folder, where
   the sequence in which the grains are read is given by a <em>glob</em>
-  (file name with wildcard) pattern.</p>
+  (file name with wildcard) pattern. This is a common format for storing
+  uncompressed post-production and grading sequences frame-by-frame,
+  particularly for the SMPTE <a href="https://en.wikipedia.org/wiki/Digital_Picture_Exchange">
+  Digital Picture Exchange (DPX)</a> format.</p>
+
+  <p>Grain metadata can be read from a single sidecar file named according to the <em>header</em>
+  parameter, or regenerated on-the-fly. The input source files may be looped.</p>
+
+  <p>Media parameters may be provided by one of the following methods, in order of
+  highest precedence first:</p>
+
+  <ol>
+   <li>A <code>contentType</code> field found in the sidecar metadata.</li>
+   <li>Information provided in an SDP file.</li>
+   <li>Media parameters provided through the configuration panel of the NMOS node.</li>
+  </ol>
+
+  <p>The format of the <em>glob</em> pattern should be a relative or explicit path to
+  a folder containing the files required followed by a pattern that is used
+  to match with the relevate file names. For example:</p>
+
+  <p>&nbsp;&nbsp;<code>c:/recordings/sheep/sheep_*.v210</code></p>
+
+  <p>The glob matching format, which operates on the filename part only, uses the
+  <a href="https://www.npmjs.com/package/micromatch#matching-features">matching
+  features</a> of the <a href="https://www.npmjs.com/package/micromatch">micromatch module</a>.
+  This includes <code>*</code>, <code>?</code> and regex character classes,
+  e.g. <code>[1-5]</code>. Files are sorted by natural string ordering.</p>
+
+  <h3>Parameters</h3>
+  <div class="param-table">
+  <table>
+   <tr>
+    <th>parameter</th><th>description</th>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+    <td>Name of the node. Also used as source &amp; flow label.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-files-o"></i> glob</td>
+    <td>File path and pattern to match.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-futbol-o" aria-hidden="true"></i> grain size</td>
+    <td>Size of each element of raw essence. Overriden when header file are present.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tint" aria-hidden="true"></i> duration</td>
+    <td>Duration of each grain as a fraction of a second. Required to regenerate
+    timings when no headers.</td>
+   <tr>
+    <td><i class="fa fa-file-text" aria-hidden="true"></i> headers</td>
+    <td>Optional path location for the sidecar file containing the grain headers
+     and individual grain payload size.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-repeat"></i> loop?</td>
+    <td>Should the file be repeated indefinitely?</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-clock-o"></i> regenerate?</td>
+    <td>Should the grain metadata be regenerated locally?</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-info-circle"></i> description</td>
+    <td>Optional description of the output NMOS source and flow.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tablet"></i> device</td>
+    <td>Select or create an NMOS device for the output source and flow.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-suitcase"></i> max buffer</td>
+    <td>Maximum number of grains to buffer before overflowing.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-external-link-square"></i> SDP URL</td>
+    <td>URL (<code>file:</code> or <code>http:</code>) to be used to locate the
+    SDP file that describes the stream.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-map-signs"></i> encoding name</td>
+    <td>Encoding name for the media, with <code>raw</code> and <code>x-v210</code>
+    for uncompressed video,
+    <code>L16</code>/<code>L24</code> for uncompressed audio and <code>smpte291</code>
+    for ancillary data.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-arrows"></i> dimensions</td>
+    <td>Width and height of video.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-heartbeat"></i> clock rate</td>
+    <td>Clock rate used to measure RTP timings.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-eye"></i> sampling</td>
+    <td>Sampling pattern for video.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-picture-o"></i> depth</td>
+    <td>Number of bits per sample for video, typically 8, 10 or 16.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-pencil-square-o"></i> colorimetry</td>
+    <td>Video colorimetry.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-bars"></i> interlace?</td>
+    <td>Is the video signal interlaced?</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-music"></i> channels</td>
+    <td>Number of audio channels.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-long-arrow-right"></i> bitrate</td>
+    <td>Audio bitrate.</td>
+   </tr>
+  </table>
+  </div>
+
+  <p>File path locations are relative to the folder where the dynamorse server was
+  started.</p>
 
   <h3>Maturity</h3>
-  <p>Not implemented -
+  <p>Implementation in progress -
   <a href="https://github.com/Streampunk/dynamorse/issues/8">status</a>.
 </script>
