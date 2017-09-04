@@ -28,8 +28,6 @@ function readHeader(filename, cb) {
       this.endianness = 'LE';
     else if (0x58504453 === magicNum) // 'XPDS'
       this.endianness = 'BE';
-
-    console.log(this.headerBuf);
     cb('' === this.endianness ? new Error('DPX file doesn\'t have the correct magic number') : null);
   });
   rs.on('error', err => { cb(err); });
