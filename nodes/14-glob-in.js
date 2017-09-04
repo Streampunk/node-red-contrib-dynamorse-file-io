@@ -19,15 +19,18 @@ var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
 var Promise = require('promise');
 var fs = require('fs');
 var grainConcater = require('../util/grainConcater.js');
+var dpx = require('../util/dpx.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var H = require('highland');
 var uuid = require('uuid');
 var mm = require('micromatch');
+var path = require('path');
 
 
 module.exports = function (RED) {
   var fsaccess = Promise.denodeify(fs.access);
   var fsreadFile = Promise.denodeify(fs.readFile);
+  var fsreadDir = Promise.denodeify(fs.readdir);
   var readdir = H.wrapCallback(fs.readdir);
   var readFile = H.wrapCallback(fs.readFile);
 
@@ -48,11 +51,12 @@ module.exports = function (RED) {
     this.headers = [];
     this.source = null;
     this.flow = null;
+    this.imageOffset = 0;
 
     this.configDuration = [ +config.grainDuration.split('/')[0],
                             +config.grainDuration.split('/')[1] ];
 
-    var lastSlash = config.glob.lastIndexOf('/');
+    var lastSlash = config.glob.lastIndexOf(path.sep);
     var pathParts = (lastSlash >= 0) ?
       [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
       [ '.', config.glob];
@@ -108,11 +112,15 @@ module.exports = function (RED) {
               tags[splitP[0]] = [ splitP[1] ];
             });
             if (tags.packing === 'v210') tags.encodingName = [ 'raw' ];
-            console.log('TAGS', tags);
             return tags;
           }
           return null;
         });
+      } else if ('.dpx' === pathParts[1].slice(-4)) {
+        node.log("Creating tags from first dpx file.");
+        return fsreadDir(pathParts[0])
+          .then(paths => 
+            dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
       } else {
         return null;
       }
@@ -127,7 +135,7 @@ module.exports = function (RED) {
     })
     .then(tags => {
       node.tags = tags;
-      console.log(tags);
+      console.log('Tags: ', tags);
       var localName = config.name || `${config.type}-${config.id}`;
       var localDescription = config.description || `${config.type}-${config.id}`;
       var pipelinesID = config.device ?
@@ -157,7 +165,7 @@ module.exports = function (RED) {
           };
         })
         .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
-        .map(x => readFile(pathParts[0] + '/' + x))
+        .map(x => readFile(pathParts[0] + path.sep + x))
         .parallel(10)
         .map(g => {
           // TODO Only regenerate for now
@@ -174,7 +182,7 @@ module.exports = function (RED) {
             grainDuration[0] * 1000000000 / grainDuration[1]|0 );
           node.baseTime = [ node.baseTime[0] + node.baseTime[1] / 1000000000|0,
             node.baseTime[1] % 1000000000];
-          return new Grain([g], grainTime,
+          return new Grain([g.slice(node.imageOffset)], grainTime,
             (node.headers.length === 0) ? grainTime : g.ptpOrigin,
             g.timecode, node.flow.id, node.source.id, grainDuration);
         })
