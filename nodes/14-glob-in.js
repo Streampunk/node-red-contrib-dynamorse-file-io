@@ -55,6 +55,7 @@ module.exports = function (RED) {
 
     this.configDuration = [ +config.grainDuration.split('/')[0],
                             +config.grainDuration.split('/')[1] ];
+    this.grainDuration = this.configDuration;
 
     var lastSlash = config.glob.lastIndexOf(path.sep);
     var pathParts = (lastSlash >= 0) ?
@@ -176,15 +177,13 @@ module.exports = function (RED) {
           var grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(node.baseTime[0], 0, 6);
           grainTime.writeUInt32BE(node.baseTime[1], 6);
-          var grainDuration = 'wibble'; // TODO g.getDuration();
-          if (isNaN(grainDuration[0])) grainDuration = node.configDuration;
           node.baseTime[1] = ( node.baseTime[1] +
-            grainDuration[0] * 1000000000 / grainDuration[1]|0 );
+            node.grainDuration[0] * 1000000000 / node.grainDuration[1]|0 );
           node.baseTime = [ node.baseTime[0] + node.baseTime[1] / 1000000000|0,
             node.baseTime[1] % 1000000000];
           return new Grain([g.slice(node.imageOffset)], grainTime,
             (node.headers.length === 0) ? grainTime : g.ptpOrigin,
-            g.timecode, node.flow.id, node.source.id, grainDuration);
+            g.timecode, node.flow.id, node.source.id, node.grainDuration);
         })
         // .pipe(grainConcater(node.tags))
       );

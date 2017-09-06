@@ -15,6 +15,7 @@
 
 var fs = require('fs');
 var Promise = require('promise');
+var os = require('os');
 
 function readHeader(filename, cb) {
   this.headerBuf = Buffer.allocUnsafe(0);
@@ -79,6 +80,7 @@ var makeTags = (node, filename) => {
         if (err) throw(err);
         // http://www.simplesystems.org/users/bfriesen/dpx/S268M_Revised.pdf
         node.log(`DPX file is ${header.endianness === 'LE' ? 'little-endian':'big-endian'}`);
+        var endianSwap = os.endianness() !== header.endianness;
 
         // File information header
         var offset = header.readUInt32(4, true);
@@ -109,24 +111,29 @@ var makeTags = (node, filename) => {
         if (dataSign !== 0) throw new Error(`DPX file has unsupported data sign ${dataSign}`);
         if ((descriptor !== 50) && (descriptor !== 100)) throw new Error(`DPX file has unsupported descriptor ${descriptor}`);
         // if ((transfer !== 2) && (transfer !== 6)) throw new Error(`DPX file has unsupported transfer characteristic ${transfer}`);
-        if ((bitDepth !== 8) && (bitDepth !== 10) && (bitDepth !== 16)) throw new Error(`DPX file has unsupported bit depth ${bitDepth}`);
+        if (bitDepth !== 10) throw new Error(`DPX file has unsupported bit depth ${bitDepth}`);
         if (packing !== 1) throw new Error(`DPX file has unsupported packing method ${packing}`);
         if (encoding !== 0) throw new Error(`DPX file has unsupported encoding method ${encoding}`);
         if ((interlace !== 0) && (interlace !== 1)) interlace = 0;
           
-        node.log(`DPX image information: ${width}x${height}, transfer: ${transfer}, colour: ${colour}, depth: ${bitDepth}, packing: ${packing}, offset: ${offset}, interlace: ${interlace}`);
-        
+        node.log(`DPX image information: ${width}x${height}, transfer: ${transfer}, colour: ${colour}, depth: ${bitDepth}, packing: ${packing}, offset: ${offset}, interlace: ${interlace}, framerate: ${frameRate}`);
+
+        if (Math.abs((frameRate * 1001) / 1000 - Math.ceil(frameRate)) < 0.0001)
+          node.grainDuration = [ 1001, 1000 * Math.ceil(frameRate) ];
+        else
+          node.grainDuration = [ 1, Math.ceil(frameRate) ];
+
         var tags = {};
         tags.format = [ 'video' ];
         tags.encodingName = [ 'raw' ];
         tags.clockRate = [ '90000' ];
         tags.height = [ height.toString() ];
         tags.width = [ width.toString() ];
-        tags.sampling = [ 50 === descriptor ? 'RGB' : 'YCbCr-4:2:2' ];
+        tags.sampling = [ 50 === descriptor ? 'RGB-4:4:4' : 'YCbCr-4:2:2' ];
         tags.depth = [ bitDepth.toString() ];
         tags.colorimetry = [ 6 === transfer ? 'BT709-2' : 'BT709-2' ];
         tags.interlace = [ 0 === interlace ? '0' : '1' ];
-        tags.packing = [ 1 === packing ? 'v210' : 'v210' ];
+        tags.packing = [ endianSwap ? 'BGR10-A-BS' : 'BGR10-A' ];
 
         resolve(tags);
       } catch(err) {
