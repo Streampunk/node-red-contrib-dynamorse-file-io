@@ -15,14 +15,38 @@
 
 var util = require('util');
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive
+var Grain = require('node-red-contrib-dynamorse-core').Grain;
 
 module.exports = function (RED) {
   function GlobOut (config) {
     RED.nodes.createNode(this, config);
     redioactive.Spout.call(this, config);
+
+    this.srcTags = null;
+    var begin = null;
+    var sentCount = 0;
     this.each((x, next) => {
-      this.log(`Received ${JSON.stringify(x, null, 2)}.`);
-      // RED.comms.publish('debug', { msg: JSON.stringify(x, null, 2) });
+      if (!Grain.isGrain(x)) {
+        this.warn('Received non-Grain payload.');
+        return next();
+      }
+      var nextJob = (this.srcTags) ? // TODO improve cable filtering
+        Promise.resolve(x) :
+        this.findCable(x).then(f => {
+          if (Array.isArray(f[0].video) && f[0].video.length > 0) {
+            this.srcTags = f[0].video[0].tags;
+          } else if (Array.isArray(f[0].audio) && f[0].audio.length > 0) {
+            this.srcTags = f[0].audio[0].tags;
+          } else {
+            return Promise.reject(`Logical cable does not contain video or audio.`);
+          }
+  ;        return x;
+        });
+      nextJob.then(g => {
+
+      }).catch(e => {
+        this.preFlightError(`Could not read tags: ${e}`);
+      });
       next();
     });
     this.done(() => {
