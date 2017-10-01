@@ -15,11 +15,10 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
+require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var AWS = require('aws-sdk');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var grainConcater = require('../util/grainConcater.js');
-var Promise = require('promise');
-var util = require('util');
 var grainConcater = require('../util/grainConcater.js');
 var uuid = require('uuid');
 var H = require('highland');

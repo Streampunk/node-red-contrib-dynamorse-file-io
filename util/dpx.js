@@ -14,7 +14,6 @@
 */
 
 var fs = require('fs');
-var Promise = require('promise');
 var os = require('os');
 
 function readHeader(filename, cb) {
@@ -65,13 +64,13 @@ readHeader.prototype.readUInt32 = function(o, core, d) {
 }
 readHeader.prototype.readFloat32 = function(o, d) {
   var val = this.headerBuf.readUInt32LE(o);
-  if (0xFFFFFFFF === val) 
+  if (0xFFFFFFFF === val)
     val = d;
-  else 
+  else
     val = this.endianness === 'LE' ? this.headerBuf.readFloatLE(o) : this.headerBuf.readFloatBE(o);
   return val;
 }
-  
+
 var makeTags = (node, filename) => {
   node.log('Read DPX Header: ' + filename);
   return new Promise((resolve, reject) => {
@@ -93,7 +92,7 @@ var makeTags = (node, filename) => {
         var width = header.readUInt32(772, true);
         var height = header.readUInt32(776, true);
 
-        var dataSign = header.readUInt32(780, true); 
+        var dataSign = header.readUInt32(780, true);
         var descriptor = header.readUInt8(800, true);
         var transfer = header.readUInt8(801, true);
         var colour = header.readUInt8(802, true);
@@ -105,7 +104,7 @@ var makeTags = (node, filename) => {
         // Television information header
         var interlace = header.readUInt8(1928, false, 0);
         var frameRate = header.readFloat32(1940, false, 25.0);
-        
+
         if (orient !== 0) throw new Error(`DPX file has unsupported orientation ${orient}`);
         if (elems !== 1) throw new Error(`DPX file has unsupported number of elements ${elems}`);
         if (dataSign !== 0) throw new Error(`DPX file has unsupported data sign ${dataSign}`);
@@ -115,7 +114,7 @@ var makeTags = (node, filename) => {
         if (packing !== 1) throw new Error(`DPX file has unsupported packing method ${packing}`);
         if (encoding !== 0) throw new Error(`DPX file has unsupported encoding method ${encoding}`);
         if ((interlace !== 0) && (interlace !== 1)) interlace = 0;
-          
+
         node.log(`DPX image information: ${width}x${height}, transfer: ${transfer}, colour: ${colour}, depth: ${bitDepth}, packing: ${packing}, offset: ${offset}, interlace: ${interlace}, framerate: ${frameRate}`);
 
         if (Math.abs((frameRate * 1001) / 1000 - Math.ceil(frameRate)) < 0.0001)

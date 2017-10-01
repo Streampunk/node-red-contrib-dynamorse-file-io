@@ -14,9 +14,9 @@
 */
 
 var util = require('util');
+require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive
 var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
-var Promise = require('promise');
 var fs = require('fs');
 var grainConcater = require('../util/grainConcater.js');
 var dpx = require('../util/dpx.js');
@@ -28,9 +28,9 @@ var path = require('path');
 
 
 module.exports = function (RED) {
-  var fsaccess = Promise.denodeify(fs.access);
-  var fsreadFile = Promise.denodeify(fs.readFile);
-  var fsreadDir = Promise.denodeify(fs.readdir);
+  var fsaccess = util.promisify(fs.access);
+  var fsreadFile = util.promisify(fs.readFile);
+  var fsreadDir = util.promisify(fs.readdir);
   var readdir = H.wrapCallback(fs.readdir);
   var readFile = H.wrapCallback(fs.readFile);
 
@@ -120,8 +120,8 @@ module.exports = function (RED) {
       } else if ('.dpx' === pathParts[1].slice(-4)) {
         node.log("Creating tags from first dpx file.");
         return fsreadDir(pathParts[0])
-          .then(paths => 
-            dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
+          .then(paths =>
+            dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0]));
       } else {
         return null;
       }
@@ -196,6 +196,6 @@ module.exports = function (RED) {
 
   GlobIn.prototype.sdpToTags = SDPProcessing.sdpToTags;
   GlobIn.prototype.setTag = SDPProcessing.setTag;
-  GlobIn.prototype.sdpURLReader = Promise.denodeify(SDPProcessing.sdpURLReader);
+  GlobIn.prototype.sdpURLReader = util.promisify(SDPProcessing.sdpURLReader);
   GlobIn.prototype.sdpToExt = SDPProcessing.sdpToExt;
 };

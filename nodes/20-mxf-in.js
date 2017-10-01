@@ -15,8 +15,8 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
+require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var klv = require('kelvinadon');
-var Promise = require('promise');
 var fs = require('fs');
 var url = require('url');
 var H = require('highland');
@@ -24,7 +24,7 @@ var uuid = require('uuid');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var Timecode = require('node-red-contrib-dynamorse-core').Timecode;
 
-var fsaccess = Promise.denodeify(fs.access);
+var fsaccess = util.promisify(fs.access);
 function makeTags(x) {
   if (!x.description) return {};
   switch (x.description.ObjectClass) {

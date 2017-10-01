@@ -15,9 +15,9 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
+require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var AWS = require('aws-sdk');
-var Promise = require('promise');
 var stream = require('stream');
 var uuid = require('uuid');
 

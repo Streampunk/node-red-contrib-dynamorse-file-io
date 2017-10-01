@@ -13,7 +13,7 @@
     "highland": "^2.10.1",
     "kelvinadon": "^0.1.2",
     "micromatch": "^3.0.4",
-    "promise": "^7.1.1",
+    "util.promisify": "^1.0.0",
     "uuid": "^2.0.1"
   },
   "devDependencies": {

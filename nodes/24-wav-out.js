@@ -80,7 +80,7 @@ module.exports = function (RED) {
             setImmediate(next);
           } else {
             var diffTime = process.hrtime(begin);
-            var diff = (sentCount * config.timeout) -
+            var diff = (sentCount * +config.timeout) -
                 (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
             setTimeout(next, (diff > 0) ? diff : 0);
           };

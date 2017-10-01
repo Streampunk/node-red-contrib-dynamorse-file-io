@@ -15,8 +15,8 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
+require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
-var Promise = require('promise');
 var fs = require('fs');
 var grainConcater = require('../util/grainConcater.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
@@ -98,8 +98,8 @@ function rawInlet(file, sizes, loop) {
 }
 
 module.exports = function (RED) {
-  var fsaccess = Promise.denodeify(fs.access);
-  var fsreadFile = Promise.denodeify(fs.readFile);
+  var fsaccess = util.promisify(fs.access);
+  var fsreadFile = util.promisify(fs.readFile);
   function RawFileIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
@@ -238,6 +238,6 @@ module.exports = function (RED) {
 
   RawFileIn.prototype.sdpToTags = SDPProcessing.sdpToTags;
   RawFileIn.prototype.setTag = SDPProcessing.setTag;
-  RawFileIn.prototype.sdpURLReader = Promise.denodeify(SDPProcessing.sdpURLReader);
+  RawFileIn.prototype.sdpURLReader = util.promisify(SDPProcessing.sdpURLReader);
   RawFileIn.prototype.sdpToExt = SDPProcessing.sdpToExt;
 }

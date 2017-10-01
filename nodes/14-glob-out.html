@@ -23,7 +23,8 @@
       glob : { value : '' },
       headers : { value : '' },
       flowSelect : { value : 'video-0' },
-      timeout : { value : 0, validate : RED.validators.number() }
+      timeout : { value : 0, validate : RED.validators.number() },
+      parallel : { value : 1, validate : RED.validators.number() }
     },
     inputs:1,
     outputs:0,
@@ -81,6 +82,10 @@
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
     <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
   </div>
+  <div class="form-row">
+    <label for="node-input-parallel"><i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</label>
+    <input type="number" min="1" id="node-input-parallel" placeholder="1" stype="width: 100px">
+  </div>
 </script>
 
 <style>
@@ -106,7 +111,9 @@
   different streams as long as the file name part is different.</p>
 
   <p>Grain metadata can be stored in a single sidecar file named according
-  to the <em>headers</em> parameter.</p>
+  to the <em>headers</em> parameter. By default, the headers file will be stored
+  in the same folder as the essence files. Use <code>../</code> for the parent
+  folder or specify an explicit location for other paths.</p>
 
   <p>The format of the <em>glob</em> pattern should be a relative or explicit
   path to a folder to contain the files required followed by a pattern that is
@@ -146,6 +153,10 @@
    <tr>
     <td><i class="fa fa-clock-o" aria-hiddne="true"></i> timeout</td>
     <td>Time to wait between writing each grain. Controls the back-pressure.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</td>
+    <td>Maximum number of parallel file writes.</td>
    </tr>
   </table>
   </div>
