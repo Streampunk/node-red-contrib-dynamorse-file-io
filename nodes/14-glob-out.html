@@ -19,7 +19,11 @@
     category: 'spout',
     color: '#FDE8C3',
     defaults : {
-      name: { value : '' }
+      name : { value : '' },
+      glob : { value : '' },
+      headers : { value : '' },
+      flowSelect : { value : 'video-0' },
+      timeout : { value : 0, validate : RED.validators.number() }
     },
     inputs:1,
     outputs:0,
@@ -36,15 +40,119 @@
     <label for="node-input-name"><i class="fa fa-tag"></i> name</label>
     <input type="text" id="node-input-name" placeholder="Name">
   </div>
+  <div class="form-row">
+    <label for="node-input-glob"><i class="fa fa-files-o" aria-hidden="true"></i> glob</label>
+    <input type="text" id="node-input-glob" placeholder="parent&bsol;dynamorse_*.v210">
+  </div>
+  <div class="form-row">
+    <label for="node-input-headers"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
+    <input type="text" id="node-input-headers" placeholder="dynamorse.json">
+  </div>
+  <div class="form-row">
+    <label for="node-input-flowSelect"><i class="fa fa-filter" aria-hidden="true"></i> flow select</label>
+    <select id="node-input-flowSelect">
+      <optgroup label="video">
+       <option value="video-0" selected>video 0</option>
+       <option value="video-1">video 1</option>
+       <option value="video-2">video 2</option>
+       <option value="video-3">video 3</option>
+      </optgroup>
+      <optgroup label="audio">
+       <option value="audio-0">audio 0</option>
+       <option value="audio-1">audio 1</option>
+       <option value="audio-2">audio 2</option>
+       <option value="audio-3">audio 3</option>
+       <option value="audio-4">audio 4</option>
+       <option value="audio-5">audio 5</option>
+       <option value="audio-6">audio 6</option>
+       <option value="audio-7">audio 7</option>
+       <option value="audio-8">audio 8</option>
+       <option value="audio-9">audio 9</option>
+       <option value="audio-10">audio 10</option>
+       <option value="audio-11">audio 11</option>
+       <option value="audio-12">audio 12</option>
+       <option value="audio-13">audio 13</option>
+       <option value="audio-14">audio 14</option>
+       <option value="audio-15">audio 15</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
+    <input type="number" min="0" id="node-input-timeout" placeholder="0" style="width: 100px">
+  </div>
 </script>
+
+<style>
+.param-table table, th, td {
+  vertical-align: top;
+  padding: 3px;
+}
+</style>
 
 <script type="text/x-red" data-help-name="glob-out">
   <h1>Files-by-glob output</h1>
-  <p>Writes grain payloads to a sequence of files in a folder, where the
-  sequence in which the grains are written is given by a <em>glob</em>
-  (file name with wildcard) pattern.</p>
+  <p>Write grain payloads for a single elementary stream to a sequence of
+  files in a folder, where the sequence in which the grains are written is
+  given by a <em>glob</em> (file name with wildcard) pattern. This is a common format
+  for storing uncompressed post-production and grading sequences frame-by-frame,
+  particularly for the SMPTE <a href="https://en.wikipedia.org/wiki/Digital_Picture_Exchange">
+  Digital Picture Exchange (DPX)</a> format.</p>
+
+  <p>The stream that is to be stored from the bundle received as a logical cable
+  input is selected using the <em>flow select</em> parameter. If you want to store
+  more than one stream from the same cable, connect up two or more glob-out spouts
+  to the proceeding funnel or valve. The same folder can be used to store
+  different streams as long as the file name part is different.</p>
+
+  <p>Grain metadata can be stored in a single sidecar file named according
+  to the <em>headers</em> parameter.</p>
+
+  <p>The format of the <em>glob</em> pattern should be a relative or explicit
+  path to a folder to contain the files required followed by a pattern that is
+  used to specify the sequential file names. For example:</p>
+
+  <p>&nbsp;&nbsp;<code>c:&bsol;recordings&bsol;sheep&bsol;sheep_*.v210</code></p>
+
+  <p>If the folder does not exist, an attempt will be made to create it. If the
+  folder is not writeable, an error will be reported. The
+  asterix (<code>*</code>) at the end of the path will be replaced by a padded
+  number sequence containing 8&hbsp;decimal digits, e.g.
+  <code>sheep_00000042.v210</code>.</p>
+
+  <h3>Parameters</h3>
+  <div class="param-table">
+  <table>
+   <tr>
+    <th>parameter</th><th>description</th>
+   </tr>
+   <tr>
+    <td><i class="fa fa-tag" aria-hidden="true"></i> name</td>
+    <td>Name of the node.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-files-o" aria-hidden="true"></i> glob</td>
+    <td>File path and file name pattern to create.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-file-text" aria-hidden="true"></i> headers</td>
+    <td>Optional path location for the sidecar file containing the grain headers
+     and individual grain payload size.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-filter" aria-hiddin="true"></i> flow select</td>
+    <td>Elementary stream to store from the input logical bundle.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-clock-o" aria-hiddne="true"></i> timeout</td>
+    <td>Time to wait between writing each grain. Controls the back-pressure.</td>
+   </tr>
+  </table>
+  </div>
+
+  <p>File path locations are relative to the folder where the dynamorse server was
+  started.</p>
 
   <h3>Maturity</h3>
-  <p>Not implemented -
-  <a href="https://github.com/Streampunk/dynamorse/issues/8">status</a>.
+  <p>Implementation in progress.</p>
 </script>

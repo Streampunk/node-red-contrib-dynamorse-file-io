@@ -25,6 +25,13 @@ module.exports = function (RED) {
     this.srcTags = null;
     var begin = null;
     var sentCount = 0;
+
+    var lastSlash = config.glob.lastIndexOf(path.sep);
+    var pathParts = (lastSlash >= 0) ?
+      [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
+      [ '.', config.glob];
+    pathParts[1] = (pathParts[1].length === 0) ? '*' : pathParts[1];
+
     this.each((x, next) => {
       if (!Grain.isGrain(x)) {
         this.warn('Received non-Grain payload.');
@@ -40,7 +47,7 @@ module.exports = function (RED) {
           } else {
             return Promise.reject(`Logical cable does not contain video or audio.`);
           }
-  ;        return x;
+          return x;
         });
       nextJob.then(g => {
 

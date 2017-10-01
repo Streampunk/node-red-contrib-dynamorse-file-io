@@ -45,7 +45,7 @@
   </div>
   <div class="form-row">
     <label for="node-input-headers"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
-    <input type="text" id="node-input-headers" placeholder="">
+    <input type="text" id="node-input-headers" placeholder="dynamorse.json">
   </div>
   <div class="form-row">
     <label for="node-input-timeout"><i class="fa fa-clock-o"></i> timeout</label>
@@ -67,7 +67,8 @@
    <li>each of the grains has the same number of bytes;</li>
    <li>a sidecar JSON file is provided with the size of each payload.</li>
   </ul>
-  <p>Grain metadata can be stored in a sidecar file.</p>
+  <p>Grain metadata can be stored in a sidecar file named according to the
+  <em>headers</em> property.</p>
 
   <h3>Parameters</h3>
   <div class="param-table">
@@ -99,6 +100,5 @@
   started.</p>
 
   <h3>Maturity</h3>
-  <p>Implemented and awaiting roundtrip testing -
-  <a href="https://github.com/Streampunk/dynamorse/issues/6">status</a>.
+  <p>Implemented and awaiting roundtrip testing.</p>
 </script>

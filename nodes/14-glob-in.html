@@ -63,14 +63,14 @@
   </div>
   <div class="form-row">
     <label for="node-input-glob"><i class="fa fa-files-o" aria-hidden="true"></i> glob</label>
-    <input type="text" id="node-input-glob" placeholder="dynamorse_*.v210">
+    <input type="text" id="node-input-glob" placeholder="parent&bsol;dynamorse_*.v210">
   </div>
   <div class="form-row">
     <label for="node-input-grainDuration"><i class="fa fa-tint" aria-hidden="true"></i> duration</label>
     <input type="text" id="node-input-grainDuration" placeholder="0/1" style="width: 120px">
   </div>
   <div class="form-row">
-    <label for="node-input-header"><i class="fa fa-file-text" aria-hidden="true"></i> header</label>
+    <label for="node-input-header"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
     <input type="text" id="node-input-headers" placeholder="dynamorse.json">
   </div>
   <div class="form-row">
@@ -203,12 +203,15 @@
 
 <script type="text/x-red" data-help-name="glob-in">
   <h1>Files-by-glob input</h1>
-  <p>Read grain payloads from a sequence of files in a folder, where
-  the sequence in which the grains are read is given by a <em>glob</em>
-  (file name with wildcard) pattern. This is a common format for storing
-  uncompressed post-production and grading sequences frame-by-frame,
+  <p>Read grain payloads for a single elementary stream from a sequence of
+  files in a folder, where the sequence in which the grains are read is given
+  by a <em>glob</em> (file name with wildcard) pattern. This is a common format
+  for storing uncompressed post-production and grading sequences frame-by-frame,
   particularly for the SMPTE <a href="https://en.wikipedia.org/wiki/Digital_Picture_Exchange">
   Digital Picture Exchange (DPX)</a> format.</p>
+
+  <p>To read more than one stream and combine into the same logical cable,
+  consider using two or more glob-in inputs and the splice valve.</p>
 
   <p>Grain metadata can be read from a single sidecar file named according to the <em>header</em>
   parameter, or regenerated on-the-fly. The input source files may be looped.</p>
@@ -224,9 +227,9 @@
 
   <p>The format of the <em>glob</em> pattern should be a relative or explicit path to
   a folder containing the files required followed by a pattern that is used
-  to match with the relevate file names. For example:</p>
+  to match with the sequential file names. For example:</p>
 
-  <p>&nbsp;&nbsp;<code>c:/recordings/sheep/sheep_*.v210</code></p>
+  <p>&nbsp;&nbsp;<code>c:&bsol;recordings&bsol;sheep&bsol;sheep_*.v210</code></p>
 
   <p>The glob matching format, which operates on the filename part only, uses the
   <a href="https://www.npmjs.com/package/micromatch#matching-features">matching
