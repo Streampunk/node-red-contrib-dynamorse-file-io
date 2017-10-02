@@ -123,16 +123,16 @@ var makeTags = (node, filename) => {
           node.grainDuration = [ 1, Math.ceil(frameRate) ];
 
         var tags = {};
-        tags.format = [ 'video' ];
-        tags.encodingName = [ 'raw' ];
-        tags.clockRate = [ '90000' ];
-        tags.height = [ height.toString() ];
-        tags.width = [ width.toString() ];
-        tags.sampling = [ 50 === descriptor ? 'RGB-4:4:4' : 'YCbCr-4:2:2' ];
-        tags.depth = [ bitDepth.toString() ];
-        tags.colorimetry = [ 6 === transfer ? 'BT709-2' : 'BT709-2' ];
-        tags.interlace = [ 0 === interlace ? '0' : '1' ];
-        tags.packing = [ endianSwap ? 'BGR10-A-BS' : 'BGR10-A' ];
+        tags.format = 'video';
+        tags.encodingName = 'raw';
+        tags.clockRate = 90000;
+        tags.height = height;
+        tags.width = width;
+        tags.sampling = 50 === descriptor ? 'RGB-4:4:4' : 'YCbCr-4:2:2';
+        tags.depth = bitDepth;
+        tags.colorimetry = 6 === transfer ? 'BT709-2' : 'BT709-2';
+        tags.interlace = (1 === interlace);
+        tags.packing = endianSwap ? 'BGR10-A-BS' : 'BGR10-A';
 
         resolve(tags);
       } catch(err) {

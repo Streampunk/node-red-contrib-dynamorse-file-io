@@ -75,7 +75,10 @@ module.exports = function (RED) {
         return new Promise((fulfil, reject) => {
           headerStream = fs.createWriteStream(headerFile, { defaultEncoding : 'utf8' });
           headerStream.once('error', reject);
-          headerStream.once('open', () => { fulfil(x); });
+          headerStream.once('open', () => {
+            headerStream.write('[\n');
+            fulfil(x);
+          });
         });
       } else {
         return x;

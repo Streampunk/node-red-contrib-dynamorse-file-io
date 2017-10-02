@@ -26,11 +26,12 @@
         return slashed.length === 2 && !isNaN(+slashed[0]) && !isNaN(+slashed[1])
           && slashed[0] >=0 && slashed[1] > 0;
       } },
-      header : { value : '' },
+      headers : { value : '' },
+      parallel : { value : 10, validate : RED.validators.number() },
       loop : { value : false },
       regenerate : { value : false },
       description : { value : '' },
-      device : { value : '', type : 'device' },
+      // device : { value : '', type : 'device' },
       maxBuffer : { value : 10, validate : RED.validators.number() },
       sdpURL : { value : "" },
       encodingName : { value : "raw" },
@@ -67,10 +68,12 @@
   </div>
   <div class="form-row">
     <label for="node-input-grainDuration"><i class="fa fa-tint" aria-hidden="true"></i> duration</label>
-    <input type="text" id="node-input-grainDuration" placeholder="0/1" style="width: 120px">
+    <input type="text" id="node-input-grainDuration" placeholder="0/1" style="width: 100px">
+    <label for="node-input-parallel">&nbsp;<i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</label>
+    <input type="number" min="1" placeholder="10" id="node-input-parallel" style="width: 100px">
   </div>
   <div class="form-row">
-    <label for="node-input-header"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
+    <label for="node-input-headers"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
     <input type="text" id="node-input-headers" placeholder="dynamorse.json">
   </div>
   <div class="form-row">
@@ -83,10 +86,10 @@
     <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
     <input type="text" id="node-input-description" placeholder="source and flow description">
   </div>
-  <div class="form-row">
+  <!-- <div class="form-row">
     <label for="node-input-device"><i class="fa fa-tablet"></i> device</label>
     <input type="text" id="node-input-device">
-  </div>
+  </div> -->
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
     <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
@@ -213,8 +216,12 @@
   <p>To read more than one stream and combine into the same logical cable,
   consider using two or more glob-in inputs and the splice valve.</p>
 
-  <p>Grain metadata can be read from a single sidecar file named according to the <em>header</em>
-  parameter, or regenerated on-the-fly. The input source files may be looped.</p>
+  <p>The input source files may be looped.</p>
+
+  <p>Grain metadata can be read from a single sidecar file named according to the <em>headers</em>
+  parameter, or regenerated on-the-fly. By default, the headers file will be assumed located
+  in the same folder as the essence files. Use <code>../</code> for the parent
+  folder or specify an explicit location for other paths.</p>
 
   <p>Media parameters may be provided by one of the following methods, in order of
   highest precedence first:</p>
@@ -259,6 +266,11 @@
     <td><i class="fa fa-tint" aria-hidden="true"></i> duration</td>
     <td>Duration of each grain as a fraction of a second. Required to regenerate
     timings when no headers.</td>
+   </tr>
+   <tr>
+    <td><i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</td>
+    <td>Maximum number of parallel file reads.</td>
+   </tr>
    <tr>
     <td><i class="fa fa-file-text" aria-hidden="true"></i> headers</td>
     <td>Optional path location for the sidecar file containing the grain headers
@@ -276,10 +288,10 @@
     <td><i class="fa fa-info-circle"></i> description</td>
     <td>Optional description of the output NMOS source and flow.</td>
    </tr>
-   <tr>
+   <!-- <tr>
     <td><i class="fa fa-tablet"></i> device</td>
     <td>Select or create an NMOS device for the output source and flow.</td>
-   </tr>
+   </tr> -->
    <tr>
     <td><i class="fa fa-suitcase"></i> max buffer</td>
     <td>Maximum number of grains to buffer before overflowing.</td>

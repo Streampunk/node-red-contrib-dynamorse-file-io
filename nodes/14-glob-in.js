@@ -26,7 +26,6 @@ var uuid = require('uuid');
 var mm = require('micromatch');
 var path = require('path');
 
-
 module.exports = function (RED) {
   var fsaccess = util.promisify(fs.access);
   var fsreadFile = util.promisify(fs.readFile);
@@ -44,27 +43,24 @@ module.exports = function (RED) {
     this.tags = {};
     this.grainCount = 0;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
-    this.exts = RED.nodes.getNode(
-      this.context().global.get('rtp_ext_id')).getConfig();
-    var nodeAPI = this.context().global.get('nodeAPI');
-    var ledger = this.context().global.get('ledger');
+    // var nodeAPI = this.context().global.get('nodeAPI');
+    // var ledger = this.context().global.get('ledger');
     this.headers = [];
-    this.source = null;
-    this.flow = null;
+    var flowID = null;
+    var sourceID = null;
     this.imageOffset = 0;
+    var parallel = +config.parallel;
 
     this.configDuration = [ +config.grainDuration.split('/')[0],
                             +config.grainDuration.split('/')[1] ];
     this.grainDuration = this.configDuration;
 
+    config.glob = config.glob.replace(/[\/\\]/g, path.sep);
     var lastSlash = config.glob.lastIndexOf(path.sep);
     var pathParts = (lastSlash >= 0) ?
       [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
       [ '.', config.glob];
     pathParts[1] = (pathParts[1].length === 0) ? '*' : pathParts[1];
-    // node.log(pathParts);
-
-    // console.log(config);
 
     switch (config.encodingName) {
       case 'raw':
@@ -83,36 +79,41 @@ module.exports = function (RED) {
 
     fsaccess(pathParts[0], fs.R_OK)
     .then(() => {
-      if (config.header) {
-        return fsaccess(config.header, fs.R_OK);
+      if (config.headers) {
+        return fsaccess(pathParts[0] + path.sep + config.headers, fs.R_OK)
+          .then(() => { config.headers = pathParts[0] + path.sep + config.headers; },
+            () => { return fsaccess(config.headers, fs.R_OK); });
       }
       if (+config.grainSize <= 0)
         return Promise.reject(new Error('No header file and grain size is zero.'));
+      return Promise.resolve();
     })
     .then(() => {
-      if (config.header) {
-        return fsreadFile(config.header).then(JSON.parse).then(heads => {
+      if (config.headers) {
+        return fsreadFile(config.headers).then(JSON.parse).then(heads => {
           node.headers = heads;
           if (node.headers.length > 0 && node.headers[0].contentType) {
             var contentType = node.headers[0].contentType;
             var tags = {};
             var mime = contentType.match(/^\s*(\w+)\/([\w\-]+)/);
-            tags.format = [ mime[1] ];
-            tags.encodingName = [ mime[2] ];
+            tags.format = mime[1];
+            tags.encodingName = mime[2];
             if (mime[1] === 'video') {
               if (mime[2] === 'raw' || mime[2] === 'x-v210') {
-                tags.clockRate = [ '90000' ];
+                tags.clockRate = 90000;
               }
-              tags.packing = ( mime[2] === 'x-v210' ) ? [ 'v210' ] : [ 'pgroup' ];
-              console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
+              tags.packing = ( mime[2] === 'x-v210' ) ? 'v210' : 'pgroup';
+              // console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
             }
             var parameters = contentType.match(/\b(\w+)=(\S+)\b/g);
             parameters.forEach(p => {
               var splitP = p.split('=');
               if (splitP[0] === 'rate') splitP[0] = 'clockRate';
-              tags[splitP[0]] = [ splitP[1] ];
+              tags[splitP[0]] = (isNaN(+splitP[1])) ? splitP[1] : +splitP[1];
             });
-            if (tags.packing === 'v210') tags.encodingName = [ 'raw' ];
+            if (typeof tags.interlace === 'number')
+              tags.interlace = (tags.interlace === 1);
+            if (tags.packing === 'v210') tags.encodingName = 'raw';
             return tags;
           }
           return null;
@@ -137,26 +138,37 @@ module.exports = function (RED) {
     .then(tags => {
       node.tags = tags;
       console.log('Tags: ', tags);
-      var localName = config.name || `${config.type}-${config.id}`;
-      var localDescription = config.description || `${config.type}-${config.id}`;
-      var pipelinesID = config.device ?
-        RED.nodes.getNode(config.device).nmos_id :
-        node.context().global.get('pipelinesID');
-      node.source = new ledger.Source(
-        (config.regenerate === false && node.headers.length > 0) ? node.headers[0].source_id : null,
-        null, localName, localDescription,
-        "urn:x-nmos:format:" + node.tags.format[0], null, null, pipelinesID, null);
-      node.flow = new ledger.Flow(
-        (config.regenerate === false && node.headers.length > 0) ? node.headers[0].flow_id : null,
-        null, localName, localDescription,
-        "urn:x-nmos:format:" + node.tags.format[0], node.tags, node.source.id,
-        (config.regenerate === true && node.headers.length > 0) ? [ node.headers[0].flow_id ] : []);
-      console.log(node.source);
-      return nodeAPI.putResource(node.source)
-        .then(() => nodeAPI.putResource(node.flow));
-    })
-    .then(() => {
+      // var localName = config.name || `${config.type}-${config.id}`;
+      // var localDescription = config.description || `${config.type}-${config.id}`;
+      // var pipelinesID = config.device ?
+      //   RED.nodes.getNode(config.device).nmos_id :
+      //   node.context().global.get('pipelinesID');
+      // node.source = new ledger.Source(
+      //   (config.regenerate === false && node.headers.length > 0) ? node.headers[0].source_id : null,
+      //   null, localName, localDescription,
+      //   "urn:x-nmos:format:" + node.tags.format[0], null, null, pipelinesID, null);
+      // node.flow = new ledger.Flow(
+      //   (config.regenerate === false && node.headers.length > 0) ? node.headers[0].flow_id : null,
+      //   null, localName, localDescription,
+      //   "urn:x-nmos:format:" + node.tags.format[0], node.tags, node.source.id,
+      //   (config.regenerate === true && node.headers.length > 0) ? [ node.headers[0].flow_id ] : []);
+      // console.log(node.source);
+      // return nodeAPI.putResource(node.source)
+      //   .then(() => nodeAPI.putResource(node.flow));
+      var cable = {};
+      cable[tags.format] = [{ tags : tags }];
+      cable.backPressure = `${tags.format}[0]`;
+      if (node.headers.length > 0 && config.regenerate === false) {
+        cable[tags.format][0].flowID = node.headers[0].flow_id;
+        cable[tags.format][0].sourceID = node.headers[0].source_id;
+      }
+      console.log('WHat a cable!!!!', cable);
+      this.makeCable(cable);
+      flowID = this.flowID();
+      sourceID = this.sourceID();
+
       var readLoop = 0;
+      var headerIndex = 0;
       node.highland(
         H((push, next) => {
           if (config.loop || readLoop++ === 0) {
@@ -167,13 +179,13 @@ module.exports = function (RED) {
         })
         .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
         .map(x => readFile(pathParts[0] + path.sep + x))
-        .parallel(10)
+        .parallel(parallel)
         .map(g => {
-          // TODO Only regenerate for now
-          // if (node.header.length > 0 && config.regenerate === false) {
-          //   return new Grain(g.buffers, g.ptpSync, g.ptpOrigin, g.timecode,
-          //     node.flow.id, node.source.id, g.duration);
-          // } // otherwise regenerate grain metadata
+          if (node.headers.length > 0 && config.regenerate === false) {
+            var hmd = node.headers[headerIndex++];
+            return new Grain([g.slice(node.imageOffset)], hmd.ptpSyncTimestamp, hmd.ptpOriginTimestamp,
+              hmd.timecode, flowID, sourceID, hmd.duration);
+          } // otherwise regenerate grain metadata
           var grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(node.baseTime[0], 0, 6);
           grainTime.writeUInt32BE(node.baseTime[1], 6);
@@ -183,7 +195,7 @@ module.exports = function (RED) {
             node.baseTime[1] % 1000000000];
           return new Grain([g.slice(node.imageOffset)], grainTime,
             (node.headers.length === 0) ? grainTime : g.ptpOrigin,
-            g.timecode, node.flow.id, node.source.id, node.grainDuration);
+            g.timecode, flowID, sourceID, node.grainDuration);
         })
         // .pipe(grainConcater(node.tags))
       );
@@ -196,6 +208,6 @@ module.exports = function (RED) {
 
   GlobIn.prototype.sdpToTags = SDPProcessing.sdpToTags;
   GlobIn.prototype.setTag = SDPProcessing.setTag;
-  GlobIn.prototype.sdpURLReader = util.promisify(SDPProcessing.sdpURLReader);
+  GlobIn.prototype.sdpURLReader = util.promisify(SDPProcessing.sdpURLReaderDynamorse);
   GlobIn.prototype.sdpToExt = SDPProcessing.sdpToExt;
 };
