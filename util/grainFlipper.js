@@ -14,30 +14,29 @@
 */
 
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
+var codecadon = require('codecadon');
 var H = require('highland');
 
-module.exports = function(process) {
-  process.on('exit', () => {
-    console.log('Process exiting');
-    process.finish();
-  });
-  process.on('error', err => {
-    console.log('Process error: ' + err);
-  });
-  var dstBufLen = process.start();
-
+module.exports = function(srcTags, flip) {
+  var flipper;
+  if (flip.h || flip.v) {
+    flipper = new codecadon.Flipper(() => {
+      console.log('Flipper exiting');
+    });
+    flipper.setInfo(srcTags, flip);
+  }
+  
   var grainMuncher = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
     } else if (x === H.nil) {
-      process.quit(() => {
-        push(null, H.nil);
-      });
+      if (flipper) flipper.quit(() => { push(null, H.nil); });
+      else push(null, H.nil);
     } else {
-      if (Grain.isGrain(x)) {
-        var dstBuf = Buffer.allocUnsafe(dstBufLen);
-        var numQueued = process.doProcess(x.buffers, dstBuf, (err, result) => {
+      if (flipper && Grain.isGrain(x)) {
+        var dstBuf = Buffer.allocUnsafe(x.buffers[0].length);
+        var numQueued = flipper.flip(x.buffers, dstBuf, (err, result) => {
           if (err) {
             push(err);
           } else if (result) {
@@ -46,10 +45,6 @@ module.exports = function(process) {
           }
           next();
         });
-        // allow a number of packets to queue ahead
-        if (numQueued < 2) {
-          next();
-          }
       } else {
         push(null, x);
         next();

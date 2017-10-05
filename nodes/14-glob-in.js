@@ -18,8 +18,9 @@ require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive
 var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
 var fs = require('fs');
-var grainConcater = require('../util/grainConcater.js');
+var grainFlipper = require('../util/grainFlipper.js');
 var dpx = require('../util/dpx.js');
+var tga = require('../util/tga.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var H = require('highland');
 var uuid = require('uuid');
@@ -49,8 +50,9 @@ module.exports = function (RED) {
     var flowID = null;
     var sourceID = null;
     this.imageOffset = 0;
+    this.flip = { h : false, v : false };
     var parallel = +config.parallel;
-
+    
     this.configDuration = [ +config.grainDuration.split('/')[0],
                             +config.grainDuration.split('/')[1] ];
     this.grainDuration = this.configDuration;
@@ -123,6 +125,11 @@ module.exports = function (RED) {
         return fsreadDir(pathParts[0])
           .then(paths =>
             dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0]));
+      } else if ('.tga' === pathParts[1].slice(-4)) {
+        node.log("Creating tags from first tga file.");
+        return fsreadDir(pathParts[0])
+          .then(paths => 
+            tga.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
       } else {
         return null;
       }
@@ -197,7 +204,7 @@ module.exports = function (RED) {
             (node.headers.length === 0) ? grainTime : g.ptpOrigin,
             g.timecode, flowID, sourceID, node.grainDuration);
         })
-        // .pipe(grainConcater(node.tags))
+        .pipe(grainFlipper(node.tags, node.flip))
       );
     })
     .catch(node.preFlightError)

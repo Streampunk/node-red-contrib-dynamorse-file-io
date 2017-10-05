@@ -15,7 +15,6 @@
 
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var codecadon = require('codecadon');
-var grainProcessor = require('./grainProcessor.js');
 var H = require('highland');
 
 module.exports = function(srcTags) {
