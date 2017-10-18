@@ -76,7 +76,7 @@ module.exports = function (RED) {
           this.wavStream.write(h, f);
         });
       nextJob.then(() => {
-        if (uuid.unparse(x.flow_id) !== srcFlowID)
+        if (uuid.unparse(x.flow_id) !== this.srcFlowID)
           return next();
 
         if (begin === null) begin = process.hrtime();
