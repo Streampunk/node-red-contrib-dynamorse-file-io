@@ -18,6 +18,7 @@ var util = require('util');
 var fs = require('fs');
 var path = require('path');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
+var uuid = require('uuid');
 
 module.exports = function (RED) {
   function WAVOut (config) {
@@ -25,6 +26,7 @@ module.exports = function (RED) {
     redioactive.Spout.call(this, config);
 
     this.srcTags = null;
+    this.srcFlowID = null;
     this.bitsPerSample = 16;
     var begin = null;
     var sentCount = 0;
@@ -48,10 +50,11 @@ module.exports = function (RED) {
       var nextJob = (this.srcTags) ?
         Promise.resolve(x) :
         this.findCable(x).then(f => {
-          if (!Array.isArray(f[0].audio) && f[0].audio.length < 1) {
+          if (!Array.isArray(f[0].audio) || (Array.isArray(f[0].audio) && f[0].audio.length < 1)) {
             return Promise.reject(`Logical cable does not contain audio.`)
           }
           this.srcTags = f[0].audio[0].tags;
+          this.srcFlowID = f[0].audio[0].flowID;
 
           var h = Buffer.allocUnsafe(44);
           h.writeUInt32BE(0x52494646, 0); // RIFF
@@ -73,6 +76,9 @@ module.exports = function (RED) {
           this.wavStream.write(h, f);
         });
       nextJob.then(() => {
+        if (uuid.unparse(x.flow_id) !== srcFlowID)
+          return next();
+
         if (begin === null) begin = process.hrtime();
         this.wavStream.write(swapBytes(x, this.bitsPerSample), () => {
           sentCount++;
