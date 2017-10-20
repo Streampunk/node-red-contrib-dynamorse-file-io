@@ -22,7 +22,6 @@
       name: { value : "" },
       description: { value: "" },
       maxBuffer : { value : 10, validate : RED.validators.number() },
-      device : { value : '', type : 'device' },
       region: { value : "eu-west-1" },
       bucket: { value : "" },
       key: { value : "" },
@@ -59,10 +58,6 @@
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
     <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
-  </div>
-  <div class="form-row">
-    <label for="node-input-device"><i class="fa fa-tablet"></i> device</label>
-    <input type="text" id="node-input-device">
   </div>
   <div class="form-row"> <!-- TODO Consider changing to a drop down choice list. -->
    <label for="node-input-region"><i class="fa fa-globe" aria-hidden="true"></i> region</label>
@@ -140,10 +135,6 @@
    <tr>
     <td><i class="fa fa-suitcase"></i> max buffer</td>
     <td>Maximum number of grains to buffer before overflowing.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-tablet"></i> device</td>
-    <td>Select or create an NMOS device for the output source and flow.</td>
    </tr>
    <tr>
     <td><i class="fa fa-globe" aria-hidden="true"></i> region</td>

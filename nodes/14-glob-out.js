@@ -14,8 +14,8 @@
 */
 
 var util = require('util');
-require('util.promisify').shim(); // TOTO Remove when on Node 8+
-var redioactive = require('node-red-contrib-dynamorse-core').Redioactive
+require('util.promisify').shim(); // TODO Remove when on Node 8+
+var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var fs = require('fs');
 var H = require('highland');
@@ -42,18 +42,16 @@ module.exports = function (RED) {
     redioactive.Spout.call(this, config);
 
     this.srcTags = null;
-    var begin = null;
     var sentCount = 0;
     var headerStream = null;
     var started = false;
-    var running = 0;
     var parallel = +config.parallel;
     var hgrain = null;
     var hend = null;
     var hstream = null;
     var timedNext = null;
 
-    config.glob = config.glob.replace(/[\/\\]/g, path.sep);
+    config.glob = config.glob.replace(/[/\\]/g, path.sep);
     var lastSlash = config.glob.lastIndexOf(path.sep);
     var pathParts = (lastSlash >= 0) ?
       [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
@@ -64,26 +62,26 @@ module.exports = function (RED) {
     var flowIndex = +config.flowSelect.slice(6);
 
     var setupPromise = fsaccess(pathParts[0], fs.W_OK)
-    .then(x => x, e => {
-      return fsmkdir(pathParts[0]);
-    })
-    .then(x => {
-      if (config.headers) {
-        var headerFile = (config.headers.indexOf(path.sep) >= 0 &&
-            !config.header.startsWith('..')) ?
-          config.headers : pathParts[0] + path.sep + config.headers;
-        return new Promise((fulfil, reject) => {
-          headerStream = fs.createWriteStream(headerFile, { defaultEncoding : 'utf8' });
-          headerStream.once('error', reject);
-          headerStream.once('open', () => {
-            headerStream.write('[\n');
-            fulfil(x);
+      .then(x => x, () => {
+        return fsmkdir(pathParts[0]);
+      })
+      .then(x => {
+        if (config.headers) {
+          var headerFile = (config.headers.indexOf(path.sep) >= 0 &&
+              !config.header.startsWith('..')) ?
+            config.headers : pathParts[0] + path.sep + config.headers;
+          return new Promise((fulfil, reject) => {
+            headerStream = fs.createWriteStream(headerFile, { defaultEncoding : 'utf8' });
+            headerStream.once('error', reject);
+            headerStream.once('open', () => {
+              headerStream.write('[\n');
+              fulfil(x);
+            });
           });
-        });
-      } else {
-        return x;
-      }
-    });
+        } else {
+          return x;
+        }
+      });
     var node = this;
 
     var startTime = process.hrtime();
@@ -103,35 +101,36 @@ module.exports = function (RED) {
         };
       }
       if (!hstream) {
-        hstream = H(function (hpush, hnext) {
+        hstream = H((hpush, hnext) => {
           // console.log(`*** Updating hgrain fn ${sentCount}.`);
           hgrain = x => { hpush(null, x); hnext(); };
           hend = () => { hpush(null, H.nil); };
         })
-        .map(x => {
-          var name = replaceStar(pathParts[0] + path.sep + pathParts[1], sentCount++);
-          timedNext(next);
-          return writeFile(name, x).map(() => name);
-        })
-        .parallel(parallel)
-        .errors(this.warn)
-        .each(n => { node.log(`${process.hrtime()}: written file: ${n}.`); })
-        .done(() => { node.log('Closing highland stream.') });
+          .map(x => {
+            var name = replaceStar(pathParts[0] + path.sep + pathParts[1], sentCount++);
+            timedNext(next);
+            return writeFile(name, x).map(() => name);
+          })
+          .parallel(parallel)
+          .errors(this.warn)
+          .each(n => { node.log(`${process.hrtime()}: written file: ${n}.`); })
+          .done(() => { node.log('Closing highland stream.'); });
       }
-      var nextJob = (this.srcTags) ? // TODO improve cable filtering
+      var nextJob = this.srcTags ?
         Promise.resolve(x) :
         setupPromise.then(() => {
           return this.findCable(x);
         })
-        .then(f => {
-          if (f && f.length > 0 && Array.isArray(f[0][flowFormat]) && f[0][flowFormat].length >= flowIndex) {
-            this.srcTags = f[0][flowFormat][flowIndex].tags;
-            // console.log('+++ src tags', this.srcTags);
-          } else {
-            return Promise.reject(`Logical cable does not contain ${flowFormat}[${flowIndex}].`);
-          }
-          return x;
-        });
+          .then(f => {
+            // TODO improve cable filtering
+            if (f && f.length > 0 && Array.isArray(f[0][flowFormat]) && f[0][flowFormat].length >= flowIndex) {
+              this.srcTags = f[0][flowFormat][flowIndex].tags;
+              // console.log('+++ src tags', this.srcTags);
+            } else {
+              return Promise.reject(`Logical cable does not contain ${flowFormat}[${flowIndex}].`);
+            }
+            return x;
+          });
 
       nextJob.then(g => {
         hgrain(g.buffers[0]);
@@ -158,7 +157,7 @@ module.exports = function (RED) {
             started = true;
           } else {
             headerStream.write(',\n' + JSON.stringify(x, null, 2));
-          };
+          }
         }
       }).catch(e => {
         this.preFlightError(`Error setting up glob: ${e}`);
@@ -178,5 +177,5 @@ module.exports = function (RED) {
     });
   }
   util.inherits(GlobOut, redioactive.Spout);
-  RED.nodes.registerType("glob-out", GlobOut);
-}
+  RED.nodes.registerType('glob-out', GlobOut);
+};

@@ -24,7 +24,6 @@
       loop : { value : false },
       regenerate : { value : false },
       description : { value : '' },
-      device : { value : '', type : "device" },
       maxBuffer : { value : 10, validate : RED.validators.number() },
       pictureTrack0 : { value : true },
       pictureTrack1 : {value : false },
@@ -77,10 +76,6 @@
   <div class="form-row">
     <label for="node-input-description"><i class="fa fa-info-circle"></i> description</label>
     <input type="text" id="node-input-description" placeholder="source and flow description">
-  </div>
-  <div class="form-row">
-    <label for="node-input-device"><i class="fa fa-tablet"></i> device</label>
-    <input type="text" id="node-input-device">
   </div>
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
@@ -176,10 +171,6 @@
    <tr>
     <td><i class="fa fa-info-circle"></i> description</td>
     <td>Optional description of the this NMOS source and output flow.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-tablet"></i> device</td>
-    <td>Select or create an NMOS device for the sources and flows.</td>
    </tr>
    <tr>
     <td><i class="fa fa-suitcase"></i> max buffer</td>

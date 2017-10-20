@@ -23,5 +23,5 @@ module.exports = function (RED) {
     // Go figure!
   }
   util.inherits(MOVOut, redioactive.Spout);
-  RED.nodes.registerType("mov-out", MOVOut);
-}
+  RED.nodes.registerType('mov-out', MOVOut);
+};

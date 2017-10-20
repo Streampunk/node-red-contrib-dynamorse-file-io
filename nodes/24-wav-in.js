@@ -17,7 +17,6 @@ var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
 var H = require('highland');
 var fs = require('fs');
-var uuid = require('uuid');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 
 function wavInlet(file, loop, grps) {
@@ -119,34 +118,33 @@ function wavInlet(file, loop, grps) {
     }
   };
   return H((push, next) => {
-      push(null, H(fs.createReadStream(file)));
-      next();
-    })
+    push(null, H(fs.createReadStream(file)));
+    next();
+  })
     .take(loop ? Number.MAX_SAFE_INTEGER : 1)
     .sequence()
     .consume(wavConsumer);
 }
 
 function swapBytes(x, bitsPerSample) {
+  var tmp = 0|0;
   switch (bitsPerSample) {
-    case 24:
-      var tmp = 0|0;
-      for ( var y = 0|0 ; y < x.length ; y += 3|0 ) {
-        tmp = x[y];
-        x[y] = x[y + 2];
-        x[y + 2] = tmp;
-      }
-      break;
-    case 16:
-      var tmp = 0|0;
-      for ( var y = 0|0 ; y < x.length ; y += 2|0 ) {
-        tmp = x[y];
-        x[y] = x[y + 1];
-        x[y + 1] = tmp;
-      }
-      break;
-    default: // No swap
-      break;
+  case 24:
+    for ( let y = 0|0 ; y < x.length ; y += 3|0 ) {
+      tmp = x[y];
+      x[y] = x[y + 2];
+      x[y + 2] = tmp;
+    }
+    break;
+  case 16:
+    for ( let y = 0|0 ; y < x.length ; y += 2|0 ) {
+      tmp = x[y];
+      x[y] = x[y + 1];
+      x[y + 1] = tmp;
+    }
+    break;
+  default: // No swap
+    break;
   }
   return x;
 }
@@ -155,54 +153,44 @@ module.exports = function (RED) {
   function WAVIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
-    // if (!this.context().global.get('updated'))
-    //   return this.log('Waiting for global context updated.');
+
     fs.access(config.file, fs.R_OK, e => {
       if (e) {
         return this.preFlightError(e);
       }
     });
-    var node = this;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.blockAlign = 4;
     this.sampleRate = 48000;
-    // var nodeAPI = this.context().global.get('nodeAPI');
-    // var ledger = this.context().global.get('ledger');
-    // var localName = config.name || `${config.type}-${config.id}`;
-    // var localDescription = config.description || `${config.type}-${config.id}`;
-    // var pipelinesID = config.device ?
-    //   RED.nodes.getNode(config.device).nmos_id :
-    //   this.context().global.get('pipelinesID');
-    // var source = new ledger.Source(null, null, localName, localDescription,
-    //   "urn:x-nmos:format:audio", null, null, pipelinesID, null);
     var flowID = null;
     var sourceID = null;
+
     this.highland(
       wavInlet(config.file, config.loop, config.grps)
-      .doto(tags => {
-        if (typeof tags === 'object' && !Buffer.isBuffer(tags)) { // Assume it is tags
-          this.makeCable({ audio : [{ tags : tags }], backPressure : "audio[0]" });
-          flowID = this.flowID();
-          sourceID = this.sourceID();
-          this.blockAlign = tags.blockAlign;
-          this.sampleRate = tags.clockRate;
-        }
-      })
-      .filter(Buffer.isBuffer)
-      .map(b => {
-        var grainTime = Buffer.allocUnsafe(10);
-        grainTime.writeUIntBE(this.baseTime[0], 0, 6);
-        grainTime.writeUInt32BE(this.baseTime[1], 6);
-        var grainDuration = [ b.length / this.blockAlign|0, this.sampleRate ];
-        this.baseTime[1] = ( this.baseTime[1] +
-          grainDuration[0] * 1000000000 / grainDuration[1]|0 );
-        this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
-          this.baseTime[1] % 1000000000];
-        return new Grain([b], grainTime, grainTime, null,
-          flowID, sourceID, grainDuration);
-      })
+        .doto(tags => {
+          if (typeof tags === 'object' && !Buffer.isBuffer(tags)) { // Assume it is tags
+            this.makeCable({ audio : [{ tags : tags }], backPressure : 'audio[0]' });
+            flowID = this.flowID();
+            sourceID = this.sourceID();
+            this.blockAlign = tags.blockAlign;
+            this.sampleRate = tags.clockRate;
+          }
+        })
+        .filter(Buffer.isBuffer)
+        .map(b => {
+          var grainTime = Buffer.allocUnsafe(10);
+          grainTime.writeUIntBE(this.baseTime[0], 0, 6);
+          grainTime.writeUInt32BE(this.baseTime[1], 6);
+          var grainDuration = [ b.length / this.blockAlign|0, this.sampleRate ];
+          this.baseTime[1] = ( this.baseTime[1] +
+            grainDuration[0] * 1000000000 / grainDuration[1]|0 );
+          this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
+            this.baseTime[1] % 1000000000];
+          return new Grain([b], grainTime, grainTime, null,
+            flowID, sourceID, grainDuration);
+        })
     );
   }
   util.inherits(WAVIn, redioactive.Funnel);
-  RED.nodes.registerType("wav-in", WAVIn);
-}
+  RED.nodes.registerType('wav-in', WAVIn);
+};

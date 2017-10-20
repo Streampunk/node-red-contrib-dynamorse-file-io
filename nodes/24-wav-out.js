@@ -37,7 +37,6 @@ module.exports = function (RED) {
       }
     });
     this.wavStream = fs.createWriteStream(config.file);
-    var initState = true;
     this.wavStream.on('error', err => {
       this.error(`Failed to write to essence WAV file '${config.file}': ${err}`);
     });
@@ -51,7 +50,7 @@ module.exports = function (RED) {
         Promise.resolve(x) :
         this.findCable(x).then(f => {
           if (!Array.isArray(f[0].audio) || (Array.isArray(f[0].audio) && f[0].audio.length < 1)) {
-            return Promise.reject(`Logical cable does not contain audio.`)
+            return Promise.reject('Logical cable does not contain audio.');
           }
           this.srcTags = f[0].audio[0].tags;
           this.srcFlowID = f[0].audio[0].flowID;
@@ -89,7 +88,7 @@ module.exports = function (RED) {
             var diff = (sentCount * +config.timeout) -
                 (diffTime[0] * 1000 + diffTime[1] / 1000000|0);
             setTimeout(next, (diff > 0) ? diff : 0);
-          };
+          }
         });
       }).catch(e => {
         this.preFlightError(`Could not read tags: ${e}`);
@@ -103,37 +102,35 @@ module.exports = function (RED) {
     this.done(() => {
       this.log('Let\'s wave goodbye!');
       this.wavStream.end(() => {
-        this.wsMsg.send({"wavDone": 0})
+        this.wsMsg.send({'wavDone': 0});
       });
     });
   }
   util.inherits(WAVOut, redioactive.Spout);
-  RED.nodes.registerType("wav-out", WAVOut);
+  RED.nodes.registerType('wav-out', WAVOut);
 
   function swapBytes(x, bitsPerSample) {
+    var tmp = 0|0;
     x.buffers.forEach(x => {
       switch (bitsPerSample) {
-        case 24:
-          var tmp = 0|0;
-          for ( var y = 0|0 ; y < x.length ; y += 3|0 ) {
-            tmp = x[y];
-            x[y] = x[y + 2];
-            x[y + 2] = tmp;
-          }
-          break;
-        case 16:
-          var tmp = 0|0;
-          for ( var y = 0|0 ; y < x.length ; y += 2|0 ) {
-            tmp = x[y];
-            x[y] = x[y + 1];
-            x[y + 1] = tmp;
-          }
-          break;
-        default: // No swap
-          break;
+      case 24:
+        for ( let y = 0|0 ; y < x.length ; y += 3|0 ) {
+          tmp = x[y];
+          x[y] = x[y + 2];
+          x[y + 2] = tmp;
+        }
+        break;
+      case 16:
+        for ( let y = 0|0 ; y < x.length ; y += 2|0 ) {
+          tmp = x[y];
+          x[y] = x[y + 1];
+          x[y + 1] = tmp;
+        }
+        break;
+      default: // No swap
+        break;
       }
     });
     return x.buffers[0];
   }
-
-}
+};

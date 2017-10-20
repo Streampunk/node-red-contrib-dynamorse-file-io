@@ -23,5 +23,5 @@ module.exports = function (RED) {
     // Go figure!
   }
   util.inherits(MXFOut, redioactive.Spout);
-  RED.nodes.registerType("mxf-out" ,MXFOut);
-}
+  RED.nodes.registerType('mxf-out' ,MXFOut);
+};

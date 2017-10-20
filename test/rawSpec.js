@@ -14,28 +14,27 @@
 */
 
 var TestUtil = require('dynamorse-test').TestUtil;
-var util = require('util');
 
 var rawInTestNode = JSON.stringify({
-  "type": "raw-file-in",
-  "z": TestUtil.testFlowId,
-  "name": "raw-file-in-test",
-  "grainDuration" : "0/1",
-  "maxBuffer": 10,
-  "wsPort": TestUtil.properties.wsPort,
-  "x": 100.0,
-  "y": 100.0,
-  "wires": [[]]
+  'type': 'raw-file-in',
+  'z': TestUtil.testFlowId,
+  'name': 'raw-file-in-test',
+  'grainDuration' : '0/1',
+  'maxBuffer': 10,
+  'wsPort': TestUtil.properties.wsPort,
+  'x': 100.0,
+  'y': 100.0,
+  'wires': [[]]
 });
-var rawInNodeId = "24fde3d7.b7544c";
-var spoutNodeId = "f2186999.7e5f78";
+var rawInNodeId = '24fde3d7.b7544c';
+var spoutNodeId = 'f2186999.7e5f78';
 
 TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
   rawFilename: __dirname + '/data/testRaw.raw',
   sdpFilename: __dirname + '/data/sdp_rfc4175_10bit_1080i50.sdp',
   maxBuffer: 10,
   spoutTimeout: 0
-}, function getFlow(params) {
+}, params => {
   var testFlow = JSON.parse(TestUtil.testNodes.baseTestFlow);
   testFlow.nodes[0] = JSON.parse(rawInTestNode);
   testFlow.nodes[0].id = rawInNodeId;
@@ -48,7 +47,7 @@ TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
   testFlow.nodes[1].id = spoutNodeId;
   testFlow.nodes[1].timeout = params.spoutTimeout;
   return testFlow;
-}, function onMsg(t, params, msgObj, onEnd) {
+}, (t, params, msgObj, onEnd) => {
   //t.comment(`Message: ${JSON.stringify(msgObj)}`);
   if (msgObj.hasOwnProperty('receive')) {
     TestUtil.checkGrain(t, msgObj.receive);

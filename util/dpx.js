@@ -37,7 +37,7 @@ readHeader.prototype.readAscii = function(o, l, core) {
   var val = this.headerBuf.toString('ascii', o, o+l);
   if (core && !val) throw new Error(`DPX file has invalid core header string at offset ${o}`);
   return val;
-}
+};
 readHeader.prototype.readUInt8 = function(o, core, d) {
   var val = this.headerBuf.readUInt8(o);
   if (0xFF === val) {
@@ -45,7 +45,7 @@ readHeader.prototype.readUInt8 = function(o, core, d) {
     else val = d;
   }
   return val;
-}
+};
 readHeader.prototype.readUInt16 = function(o, core, d) {
   var val = this.endianness === 'LE' ? this.headerBuf.readUInt16LE(o) : this.headerBuf.readUInt16BE(o);
   if (0xFFFF === val) {
@@ -53,7 +53,7 @@ readHeader.prototype.readUInt16 = function(o, core, d) {
     else val = d;
   }
   return val;
-}
+};
 readHeader.prototype.readUInt32 = function(o, core, d) {
   var val = this.endianness === 'LE' ? this.headerBuf.readUInt32LE(o) : this.headerBuf.readUInt32BE(o);
   if (0xFFFFFFFF === val) {
@@ -61,7 +61,7 @@ readHeader.prototype.readUInt32 = function(o, core, d) {
     else val = d;
   }
   return val;
-}
+};
 readHeader.prototype.readFloat32 = function(o, d) {
   var val = this.headerBuf.readUInt32LE(o);
   if (0xFFFFFFFF === val)
@@ -69,7 +69,7 @@ readHeader.prototype.readFloat32 = function(o, d) {
   else
     val = this.endianness === 'LE' ? this.headerBuf.readFloatLE(o) : this.headerBuf.readFloatBE(o);
   return val;
-}
+};
 
 var makeTags = (node, filename) => {
   node.log('Read DPX Header: ' + filename);
@@ -84,7 +84,7 @@ var makeTags = (node, filename) => {
         // File information header
         var offset = header.readUInt32(4, true);
         node.log(`DPX header format ${header.readAscii(8, 8, true)}`);
-        var fileSize = header.readUInt32(16, true);
+        // var fileSize = header.readUInt32(16, true);
 
         // Image information header
         var orient = header.readUInt16(768, true);
@@ -140,7 +140,7 @@ var makeTags = (node, filename) => {
       }
     });
   });
-}
+};
 
 module.exports = {
   makeTags : makeTags

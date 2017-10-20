@@ -14,8 +14,8 @@
 */
 
 var util = require('util');
-require('util.promisify').shim(); // TOTO Remove when on Node 8+
-var redioactive = require('node-red-contrib-dynamorse-core').Redioactive
+require('util.promisify').shim(); // TODO Remove when on Node 8+
+var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
 var fs = require('fs');
 var grainFlipper = require('../util/grainFlipper.js');
@@ -23,7 +23,6 @@ var dpx = require('../util/dpx.js');
 var tga = require('../util/tga.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var H = require('highland');
-var uuid = require('uuid');
 var mm = require('micromatch');
 var path = require('path');
 
@@ -37,10 +36,8 @@ module.exports = function (RED) {
   function GlobIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
-    if (!this.context().global.get('updated'))
-      return this.log(`Waiting for global context to be updated. ${this.context().global.get('updated')}`);
-    var node = this;
 
+    var node = this;
     this.tags = {};
     this.grainCount = 0;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
@@ -54,10 +51,10 @@ module.exports = function (RED) {
     var parallel = +config.parallel;
     
     this.configDuration = [ +config.grainDuration.split('/')[0],
-                            +config.grainDuration.split('/')[1] ];
+      +config.grainDuration.split('/')[1] ];
     this.grainDuration = this.configDuration;
 
-    config.glob = config.glob.replace(/[\/\\]/g, path.sep);
+    config.glob = config.glob.replace(/[/\\]/g, path.sep);
     var lastSlash = config.glob.lastIndexOf(path.sep);
     var pathParts = (lastSlash >= 0) ?
       [ config.glob.slice(0, lastSlash), config.glob.slice(lastSlash + 1)] :
@@ -65,153 +62,134 @@ module.exports = function (RED) {
     pathParts[1] = (pathParts[1].length === 0) ? '*' : pathParts[1];
 
     switch (config.encodingName) {
-      case 'raw':
-      case 'h264':
-      case 'smpte291':
-        config.format = 'video';
-        break;
-      case 'L16':
-      case 'L24':
-        config.format = 'audio';
-        break;
-      default:
-        config.format = 'application';
-        break;
+    case 'raw':
+    case 'h264':
+    case 'smpte291':
+      config.format = 'video';
+      break;
+    case 'L16':
+    case 'L24':
+      config.format = 'audio';
+      break;
+    default:
+      config.format = 'application';
+      break;
     }
 
     fsaccess(pathParts[0], fs.R_OK)
-    .then(() => {
-      if (config.headers) {
-        return fsaccess(pathParts[0] + path.sep + config.headers, fs.R_OK)
-          .then(() => { config.headers = pathParts[0] + path.sep + config.headers; },
-            () => { return fsaccess(config.headers, fs.R_OK); });
-      }
-      if (+config.grainSize <= 0)
-        return Promise.reject(new Error('No header file and grain size is zero.'));
-      return Promise.resolve();
-    })
-    .then(() => {
-      if (config.headers) {
-        return fsreadFile(config.headers).then(JSON.parse).then(heads => {
-          node.headers = heads;
-          if (node.headers.length > 0 && node.headers[0].contentType) {
-            var contentType = node.headers[0].contentType;
-            var tags = {};
-            var mime = contentType.match(/^\s*(\w+)\/([\w\-]+)/);
-            tags.format = mime[1];
-            tags.encodingName = mime[2];
-            if (mime[1] === 'video') {
-              if (mime[2] === 'raw' || mime[2] === 'x-v210') {
-                tags.clockRate = 90000;
+      .then(() => {
+        if (config.headers) {
+          return fsaccess(pathParts[0] + path.sep + config.headers, fs.R_OK)
+            .then(() => { config.headers = pathParts[0] + path.sep + config.headers; },
+              () => { return fsaccess(config.headers, fs.R_OK); });
+        }
+        if (+config.grainSize <= 0)
+          return Promise.reject(new Error('No header file and grain size is zero.'));
+        return Promise.resolve();
+      })
+      .then(() => {
+        if (config.headers) {
+          return fsreadFile(config.headers).then(JSON.parse).then(heads => {
+            node.headers = heads;
+            if (node.headers.length > 0 && node.headers[0].contentType) {
+              var contentType = node.headers[0].contentType;
+              var tags = {};
+              var mime = contentType.match(/^\s*(\w+)\/([\w-]+)/);
+              tags.format = mime[1];
+              tags.encodingName = mime[2];
+              if (mime[1] === 'video') {
+                if (mime[2] === 'raw' || mime[2] === 'x-v210') {
+                  tags.clockRate = 90000;
+                }
+                tags.packing = ( mime[2] === 'x-v210' ) ? 'v210' : 'pgroup';
+                // console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
               }
-              tags.packing = ( mime[2] === 'x-v210' ) ? 'v210' : 'pgroup';
-              // console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
+              var parameters = contentType.match(/\b(\w+)=(\S+)\b/g);
+              parameters.forEach(p => {
+                var splitP = p.split('=');
+                if (splitP[0] === 'rate') splitP[0] = 'clockRate';
+                tags[splitP[0]] = (isNaN(+splitP[1])) ? splitP[1] : +splitP[1];
+              });
+              if (typeof tags.interlace === 'number')
+                tags.interlace = (tags.interlace === 1);
+              if (tags.packing === 'v210') tags.encodingName = 'raw';
+              return tags;
             }
-            var parameters = contentType.match(/\b(\w+)=(\S+)\b/g);
-            parameters.forEach(p => {
-              var splitP = p.split('=');
-              if (splitP[0] === 'rate') splitP[0] = 'clockRate';
-              tags[splitP[0]] = (isNaN(+splitP[1])) ? splitP[1] : +splitP[1];
-            });
-            if (typeof tags.interlace === 'number')
-              tags.interlace = (tags.interlace === 1);
-            if (tags.packing === 'v210') tags.encodingName = 'raw';
-            return tags;
-          }
+            return null;
+          });
+        } else if ('.dpx' === pathParts[1].slice(-4)) {
+          node.log('Creating tags from first dpx file.');
+          return fsreadDir(pathParts[0])
+            .then(paths =>
+              dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0]));
+        } else if ('.tga' === pathParts[1].slice(-4)) {
+          node.log('Creating tags from first tga file.');
+          return fsreadDir(pathParts[0])
+            .then(paths => 
+              tga.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
+        } else {
           return null;
-        });
-      } else if ('.dpx' === pathParts[1].slice(-4)) {
-        node.log("Creating tags from first dpx file.");
-        return fsreadDir(pathParts[0])
-          .then(paths =>
-            dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0]));
-      } else if ('.tga' === pathParts[1].slice(-4)) {
-        node.log("Creating tags from first tga file.");
-        return fsreadDir(pathParts[0])
-          .then(paths => 
-            tga.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
-      } else {
-        return null;
-      }
-    })
-    .then(tags => {
-      if (!tags) {
-        node.log("Failed to read tags - trying via configuration.");
-        return node.sdpURLReader(config);
-      } else {
-        return tags;
-      }
-    })
-    .then(tags => {
-      node.tags = tags;
-      console.log('Tags: ', tags);
-      // var localName = config.name || `${config.type}-${config.id}`;
-      // var localDescription = config.description || `${config.type}-${config.id}`;
-      // var pipelinesID = config.device ?
-      //   RED.nodes.getNode(config.device).nmos_id :
-      //   node.context().global.get('pipelinesID');
-      // node.source = new ledger.Source(
-      //   (config.regenerate === false && node.headers.length > 0) ? node.headers[0].source_id : null,
-      //   null, localName, localDescription,
-      //   "urn:x-nmos:format:" + node.tags.format[0], null, null, pipelinesID, null);
-      // node.flow = new ledger.Flow(
-      //   (config.regenerate === false && node.headers.length > 0) ? node.headers[0].flow_id : null,
-      //   null, localName, localDescription,
-      //   "urn:x-nmos:format:" + node.tags.format[0], node.tags, node.source.id,
-      //   (config.regenerate === true && node.headers.length > 0) ? [ node.headers[0].flow_id ] : []);
-      // console.log(node.source);
-      // return nodeAPI.putResource(node.source)
-      //   .then(() => nodeAPI.putResource(node.flow));
-      var cable = {};
-      cable[tags.format] = [{ tags : tags }];
-      cable.backPressure = `${tags.format}[0]`;
-      if (node.headers.length > 0 && config.regenerate === false) {
-        cable[tags.format][0].flowID = node.headers[0].flow_id;
-        cable[tags.format][0].sourceID = node.headers[0].source_id;
-      }
-      console.log('WHat a cable!!!!', cable);
-      this.makeCable(cable);
-      flowID = this.flowID();
-      sourceID = this.sourceID();
+        }
+      })
+      .then(tags => {
+        if (!tags) {
+          node.log('Failed to read tags - trying via configuration.');
+          return node.sdpURLReader(config);
+        } else {
+          return tags;
+        }
+      })
+      .then(tags => {
+        node.tags = tags;
+        var cable = {};
+        cable[tags.format] = [{ tags : tags }];
+        cable.backPressure = `${tags.format}[0]`;
+        if (node.headers.length > 0 && config.regenerate === false) {
+          cable[tags.format][0].flowID = node.headers[0].flow_id;
+          cable[tags.format][0].sourceID = node.headers[0].source_id;
+        }
+        this.makeCable(cable);
+        flowID = this.flowID();
+        sourceID = this.sourceID();
 
-      var readLoop = 0;
-      var headerIndex = 0;
-      node.highland(
-        H((push, next) => {
-          if (config.loop || readLoop++ === 0) {
-            push(null, pathParts[0]); next();
-          } else {
-            push(null, H.nil);
-          };
-        })
-        .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
-        .map(x => readFile(pathParts[0] + path.sep + x))
-        .parallel(parallel)
-        .map(g => {
-          if (node.headers.length > 0 && config.regenerate === false) {
-            var hmd = node.headers[headerIndex++];
-            return new Grain([g.slice(node.imageOffset)], hmd.ptpSyncTimestamp, hmd.ptpOriginTimestamp,
-              hmd.timecode, flowID, sourceID, hmd.duration);
-          } // otherwise regenerate grain metadata
-          var grainTime = Buffer.allocUnsafe(10);
-          grainTime.writeUIntBE(node.baseTime[0], 0, 6);
-          grainTime.writeUInt32BE(node.baseTime[1], 6);
-          node.baseTime[1] = ( node.baseTime[1] +
-            node.grainDuration[0] * 1000000000 / node.grainDuration[1]|0 );
-          node.baseTime = [ node.baseTime[0] + node.baseTime[1] / 1000000000|0,
-            node.baseTime[1] % 1000000000];
-          return new Grain([g.slice(node.imageOffset)], grainTime,
-            (node.headers.length === 0) ? grainTime : g.ptpOrigin,
-            g.timecode, flowID, sourceID, node.grainDuration);
-        })
-        .pipe(grainFlipper(node.tags, node.flip))
-      );
-    })
-    .catch(node.preFlightError)
+        var readLoop = 0;
+        var headerIndex = 0;
+        node.highland(
+          H((push, next) => {
+            if (config.loop || readLoop++ === 0) {
+              push(null, pathParts[0]); next();
+            } else {
+              push(null, H.nil);
+            }
+          })
+            .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
+            .map(x => readFile(pathParts[0] + path.sep + x))
+            .parallel(parallel)
+            .map(g => {
+              if (node.headers.length > 0 && config.regenerate === false) {
+                var hmd = node.headers[headerIndex++];
+                return new Grain([g.slice(node.imageOffset)], hmd.ptpSyncTimestamp, hmd.ptpOriginTimestamp,
+                  hmd.timecode, flowID, sourceID, hmd.duration);
+              } // otherwise regenerate grain metadata
+              var grainTime = Buffer.allocUnsafe(10);
+              grainTime.writeUIntBE(node.baseTime[0], 0, 6);
+              grainTime.writeUInt32BE(node.baseTime[1], 6);
+              node.baseTime[1] = ( node.baseTime[1] +
+                node.grainDuration[0] * 1000000000 / node.grainDuration[1]|0 );
+              node.baseTime = [ node.baseTime[0] + node.baseTime[1] / 1000000000|0,
+                node.baseTime[1] % 1000000000];
+              return new Grain([g.slice(node.imageOffset)], grainTime,
+                (node.headers.length === 0) ? grainTime : g.ptpOrigin,
+                g.timecode, flowID, sourceID, node.grainDuration);
+            })
+            .pipe(grainFlipper(node.tags, node.flip))
+        );
+      })
+      .catch(node.preFlightError);
     node.log('Set up promises for raw file in.');
   }
   util.inherits(GlobIn, redioactive.Funnel);
-  RED.nodes.registerType("glob-in", GlobIn);
+  RED.nodes.registerType('glob-in', GlobIn);
 
   GlobIn.prototype.sdpToTags = SDPProcessing.sdpToTags;
   GlobIn.prototype.setTag = SDPProcessing.setTag;

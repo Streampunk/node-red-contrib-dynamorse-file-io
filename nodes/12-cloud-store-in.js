@@ -15,10 +15,8 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
-require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var AWS = require('aws-sdk');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
-var grainConcater = require('../util/grainConcater.js');
 var grainConcater = require('../util/grainConcater.js');
 var uuid = require('uuid');
 var H = require('highland');
@@ -30,7 +28,6 @@ function cloudInlet(s3, objectDetails, sizes, loop, length, queueSize) {
   var sourceID = uuid.v4();
   var bufs = [];
   var desired = (typeof sizes === 'number') ? sizes : 0;
-  var remaining = null;
   var grainCount = 0;
   var fixedChomper = (err, x, push, next) => {
     if (err) {
@@ -57,7 +54,6 @@ function cloudInlet(s3, objectDetails, sizes, loop, length, queueSize) {
     }
   };
   var nextGrain = null;
-  var nextLength = null;
   var variableChomper = (err, x, push, next) => {
     if (err) {
       push(err);
@@ -89,7 +85,6 @@ function cloudInlet(s3, objectDetails, sizes, loop, length, queueSize) {
     }
   };
   var chunkCount = 0;
-  var position = 0;
   var chunkMode = (typeof sizes === 'number') && (sizes > 1000000);
   var totalChunks = (chunkMode === true) ? length / sizes|0 : 1;
   var parallels = (chunkMode === true) ?  queueSize : 1;
@@ -108,24 +103,20 @@ function cloudInlet(s3, objectDetails, sizes, loop, length, queueSize) {
     }
     next();
   })
-  .take(loop ? Number.MAX_SAFE_INTEGER : totalChunks)
-  .parallel(parallels)
-  .consume((typeof sizes === 'number') ? fixedChomper : variableChomper)
-  .doto(() => { console.log('Finished a stream.', streamCount--)});
+    .take(loop ? Number.MAX_SAFE_INTEGER : totalChunks)
+    .parallel(parallels)
+    .consume((typeof sizes === 'number') ? fixedChomper : variableChomper)
+    .doto(() => { console.log('Finished a stream.', streamCount--); });
 }
 
 module.exports = function (RED) {
   function CloudStoreIn (config) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
-    if (!this.context().global.get('updated'))
-      return this.log(`Waiting for global context to be updated. ${this.context().global.get('updated')}`);
     console.log(util.inspect(config));
     var s3 = new AWS.S3({ region : config.region });
-    var nodeAPI = this.context().global.get('nodeAPI');
-    var ledger = this.context().global.get('ledger');
-    this.source = null;
-    this.flow = null;
+    var flowID = null;
+    var sourceID = null;
     this.metadata = null;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.duration = [ 1, 25 ];
@@ -133,93 +124,85 @@ module.exports = function (RED) {
     this.tags = {};
     this.contentLength = 0;
     s3.headBucket({ Bucket : config.bucket }).promise()
-    .then(() => {
-      return s3.headObject({
-        Bucket: config.bucket,
-        Key: config.key }).promise();
+      .then(() => {
+        return s3.headObject({
+          Bucket: config.bucket,
+          Key: config.key }).promise();
       })
-    .then(o => {
-      var localName = config.name || `${config.type}-${config.id}`;
-      var localDescription = config.description || `${config.type}-${config.id}`;
-      this.metadata = o.Metadata;
-      this.chunksize = +this.metadata.grainsize;
-      this.contentLength = o.ContentLength;
-      if (isNaN(this.chunksize)) {
-        return Promise.reject('Received chunksize that is non-numerical.');
-      }
-      var pipelinesID = config.device ?
-        RED.nodes.getNode(config.device).nmos_id :
-        this.context().global.get('pipelinesID');
-      this.tags = makeTags(o.ContentType);
-      if (config.regenerate === true && this.metadata.starttimesync) {
-        var m = this.metadata.starttimesync.match(/^([0-9]+):([0-9]+)$/);
-        this.baseTime[0] = +m[1];
-        this.baseTime[1] = +m[2];
-      }
-      if (this.metadata.duration) {
-        var m = this.metadata.duration.match(/^([0-9]+)\/([0-9]+)$/);
-        this.duration[0] = +m[1];
-        this.duration[1] = +m[2];
-      }
-      this.source = new ledger.Source(
-        (config.regenerate === false && this.metadata.sourceid) ? o.sourceid : null,
-        null, localName, localDescription,
-        "urn:x-nmos:format:" + this.tags.format[0], null, null, pipelinesID, null);
-      this.flow = new ledger.Flow(
-        (config.regenerate === false && this.metadata.flowid) ? this.metadata.flowid : null,
-        null, localName, localDescription,
-        "urn:x-nmos:format:" + this.tags.format[0], this.tags, this.source.id,
-        (config.regenerate === true && o.metadata.flowid) ? [ this.metadata.flowid ] : []);
-      return nodeAPI.putResource(this.source)
-        .then(nodeAPI.putResource(this.flow));
-    }, e => {
-      this.preFlightError(`Uanable to resolve bucket and/or object: ${e}`);
-      return Promise.reject(`Uanable to resolve bucket and/or object: ${e}`);
-    })
-    .then(() => {
-      this.highland(
-        cloudInlet(s3, { Bucket: config.bucket, Key: config.key },
-          this.chunksize, config.loop, this.contentLength, config.queueSize)
-        .map(g => {
-          var grainTime = Buffer.allocUnsafe(10);
-          grainTime.writeUIntBE(this.baseTime[0], 0, 6);
-          grainTime.writeUInt32BE(this.baseTime[1], 6);
-          this.baseTime[1] = ( this.baseTime[1] +
-            this.duration[0] * 1000000000 / this.duration[1]|0);
-          this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
-            this.baseTime[1] % 1000000000];
-          return new Grain(g.buffers, grainTime, grainTime, null,
-            this.flow.id, this.source.id, this.duration);
-        })
-        .pipe(grainConcater(this.tags)));
-    })
-    .catch(e => {
-      this.preFlightError(e);
-    });
+      .then(o => {
+        this.metadata = o.Metadata;
+        this.chunksize = +this.metadata.grainsize;
+        this.contentLength = o.ContentLength;
+        if (isNaN(this.chunksize)) {
+          return Promise.reject('Received chunksize that is non-numerical.');
+        }
+        this.tags = makeTags(o.ContentType);
+        if (config.regenerate === true && this.metadata.starttimesync) {
+          let m = this.metadata.starttimesync.match(/^([0-9]+):([0-9]+)$/);
+          this.baseTime[0] = +m[1];
+          this.baseTime[1] = +m[2];
+        }
+        if (this.metadata.duration) {
+          let m = this.metadata.duration.match(/^([0-9]+)\/([0-9]+)$/);
+          this.duration[0] = +m[1];
+          this.duration[1] = +m[2];
+        }
+
+        let cableSpec = {};
+        cableSpec[this.tags.format] = [{ tags : this.tags }];
+        cableSpec.backPressure = `${this.tags.format}[0]`;
+        this.makeCable(cableSpec);
+        flowID = this.flowID();
+        sourceID = this.sourceID();
+        return Promise.resolve();
+      }, e => {
+        this.preFlightError(`Uanable to resolve bucket and/or object: ${e}`);
+        return Promise.reject(`Uanable to resolve bucket and/or object: ${e}`);
+      })
+      .then(() => {
+        return this.highland(
+          cloudInlet(s3, { Bucket: config.bucket, Key: config.key },
+            this.chunksize, config.loop, this.contentLength, config.queueSize)
+            .map(g => {
+              var grainTime = Buffer.allocUnsafe(10);
+              grainTime.writeUIntBE(this.baseTime[0], 0, 6);
+              grainTime.writeUInt32BE(this.baseTime[1], 6);
+              this.baseTime[1] = ( this.baseTime[1] +
+                this.duration[0] * 1000000000 / this.duration[1]|0);
+              this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
+                this.baseTime[1] % 1000000000];
+              return new Grain(g.buffers, grainTime, grainTime, null,
+                flowID, sourceID, this.duration);
+            })
+            .pipe(grainConcater(this.tags)));
+      })
+      .catch(e => {
+        this.preFlightError(e);
+      });
     this.log('Set up promises.');
   }
   util.inherits(CloudStoreIn, redioactive.Funnel);
-  RED.nodes.registerType("cloud-store-in", CloudStoreIn);
-}
+  RED.nodes.registerType('cloud-store-in', CloudStoreIn);
+};
 
 function makeTags(ct) {
   var tags = {};
-  var mime = ct.match(/^\s*(\w+)\/([\w\-]+)/);
-  tags.format = [ mime[1] ];
-  tags.encodingName = [ mime[2] ];
+  var mime = ct.match(/^\s*(\w+)\/([\w-]+)/);
+  tags.format = mime[1];
+  tags.encodingName = mime[2];
   if (mime[1] === 'video') {
     if (mime[2] === 'raw' || mime[2] === 'x-v210') {
-      tags.clockRate = [ '90000' ];
+      tags.clockRate = '90000';
     }
-    tags.packing = ( mime[2] === 'x-v210' ) ? [ 'v210' ] : [ 'pgroup' ];
+    tags.packing = ( mime[2] === 'x-v210' ) ? 'v210' : 'pgroup';
     console.log('***!!!£££ tags.packing = ', tags.packing, mime[2]);
   }
   var parameters = ct.match(/\b(\w+)=(\S+)\b/g);
   parameters.forEach(p => {
     var splitP = p.split('=');
     if (splitP[0] === 'rate') splitP[0] = 'clockRate';
-    tags[splitP[0]] = [ splitP[1] ];
+    tags[splitP[0]] = splitP[1];
   });
-  if (tags.packing === 'v210') tags.encodingName = [ 'raw' ];
+  if (tags.packing === 'v210') tags.encodingName = 'raw';
   return tags;
 }

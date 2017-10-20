@@ -15,7 +15,6 @@
 
 var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var util = require('util');
-require('util.promisify').shim(); // TOTO Remove when on Node 8+
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
 var AWS = require('aws-sdk');
 var stream = require('stream');
@@ -40,28 +39,26 @@ module.exports = function (RED) {
         return next();
       }
       if (this.writePromise === null) {
-        this.writePromise = new Promise((fulfil, reject) => {
-          this.getNMOSFlow(x, (err, f) => {
-            if (err) {
-              this.warn("Failed to resolve NMOS flow.");
-              return reject(err);
-            }
+        this.writePromise = this.findCable(x)
+          .then(cable => {
+            let isVideo = Array.isArray(cable[0].video) && cable[0].video.length > 0;
+            let srcTags = isVideo ? cable[0].video[0].tags : cable[0].audio[0].tags;
             var md = {};
             var contentType = '';
-            var encodingName = f.tags.encodingName[0];
-            console.log(f.tags);
-            if (f.tags.packing && f.tags.packing[0].toLowerCase() === 'v210') {
+            var encodingName = srcTags.encodingName;
+            console.log(srcTags);
+            if (srcTags.packing && srcTags.packing.toLowerCase() === 'v210') {
               encodingName = 'x-v210';
             }
-            if (f.tags.format[0] === 'video' &&
+            if (srcTags.format === 'video' &&
                 (encodingName === 'raw' || encodingName === 'x-v210')) {
-              contentType = `video/${encodingName}; sampling=${f.tags.sampling[0]}; ` +
-                `width=${f.tags.width[0]}; height=${f.tags.height[0]}; depth=${f.tags.depth[0]}; ` +
-                `colorimetry=${f.tags.colorimetry[0]}; interlace=0`; //${f.tags.interlace[0]}`;
+              contentType = `video/${encodingName}; sampling=${srcTags.sampling}; ` +
+                `width=${srcTags.width}; height=${srcTags.height}; depth=${srcTags.depth}; ` +
+                `colorimetry=${srcTags.colorimetry}; interlace=${srcTags.interlace?1:0}`;
             } else {
-              contentType = `${f.tags.format}/${f.tags.encodingName}`;
-              if (f.tags.clockRate) contentType += `; rate=${f.tags.clockRate[0]}`;
-              if (f.tags.channels) contentType += `; channels=${f.tags.channels[0]}`;
+              contentType = `${srcTags.format}/${srcTags.encodingName}`;
+              if (srcTags.clockRate) contentType += `; rate=${srcTags.clockRate}`;
+              if (srcTags.channels) contentType += `; channels=${srcTags.channels}`;
             }
             md.grainSize = `${x.buffers[0].length}`;
             md.startTimeOrigin = Grain.prototype.formatTimestamp(x.ptpOrigin);
@@ -84,7 +81,7 @@ module.exports = function (RED) {
             upload.promise().then(o => {
               this.log(`Finished uploading S3 object ${config.bucket}/${config.key}: ${util.inspect(o)}`);
             }, e => {
-              this.error(`Failed to upload S3 object ${config.bucket}/${config.key}: ${e}`)
+              this.error(`Failed to upload S3 object ${config.bucket}/${config.key}: ${e}`);
             });
             this.s3Stream.on('error', e => {
               this.warn(`Error on stream upload: ${e}`);
@@ -93,9 +90,8 @@ module.exports = function (RED) {
               this.log(`Uploaded part to S3: ${util.inspect(p)}`);
             });
             this.log(`Fulfilling writepromise with ${upload}`);
-            fulfil(this.s3Stream);
+            Promise.resolve(this.s3Stream);
           });
-        });
         this.writePromise.catch(e => { this.warn(`Write promise failed: ${e}`); });
       }
       this.writePromise.then(u => {
@@ -107,7 +103,7 @@ module.exports = function (RED) {
           return u;
         } else {
           this.log(`Waiting for drain: ${util.inspect(u)}`);
-          return new Promise((fulfil, reject) => {
+          return new Promise((fulfil/*, reject*/) => {
             u.once('drain', () => {
               next();
               return fulfil(u); // Improve timeout function
@@ -147,5 +143,5 @@ module.exports = function (RED) {
     });
   }
   util.inherits(CloudStoreOut, redioactive.Spout);
-  RED.nodes.registerType("cloud-store-out", CloudStoreOut);
-}
+  RED.nodes.registerType('cloud-store-out', CloudStoreOut);
+};

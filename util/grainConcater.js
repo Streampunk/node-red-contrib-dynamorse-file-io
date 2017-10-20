@@ -38,12 +38,12 @@ module.exports = function(srcTags) {
           dstBufSize = x.buffers.reduce((x, y) => x + y.length, 0);
         }
         var dstBuf = Buffer.allocUnsafe(dstBufSize);
-        var numQueued = concater.concat(x.buffers, dstBuf, (err, result) => {
+        concater.concat(x.buffers, dstBuf, (err, result) => {
           if (err) {
             push(err);
           } else if (result) {
             push(null, new Grain(result, x.ptpSync, x.ptpOrigin,
-                                 x.timecode, x.flow_id, x.source_id, x.duration));
+              x.timecode, x.flow_id, x.source_id, x.duration));
           }
           next();
         });
@@ -55,4 +55,4 @@ module.exports = function(srcTags) {
   };
 
   return H.pipeline(H.consume(grainMuncher));
-}
+};

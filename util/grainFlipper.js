@@ -36,12 +36,12 @@ module.exports = function(srcTags, flip) {
     } else {
       if (flipper && Grain.isGrain(x)) {
         var dstBuf = Buffer.allocUnsafe(x.buffers[0].length);
-        var numQueued = flipper.flip(x.buffers, dstBuf, (err, result) => {
+        flipper.flip(x.buffers, dstBuf, (err, result) => {
           if (err) {
             push(err);
           } else if (result) {
             push(null, new Grain(result, x.ptpSync, x.ptpOrigin,
-                                 x.timecode, x.flow_id, x.source_id, x.duration));
+              x.timecode, x.flow_id, x.source_id, x.duration));
           }
           next();
         });
@@ -53,4 +53,4 @@ module.exports = function(srcTags, flip) {
   };
 
   return H.pipeline(H.consume(grainMuncher));
-}
+};
