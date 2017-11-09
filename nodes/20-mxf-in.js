@@ -13,52 +13,88 @@
   limitations under the License.
 */
 
-var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
-var util = require('util');
-require('util.promisify').shim(); // TODO Remove when on Node 8+
-var klv = require('kelvinadon');
-var fs = require('fs');
-var url = require('url');
-var H = require('highland');
-var Grain = require('node-red-contrib-dynamorse-core').Grain;
-var Timecode = require('node-red-contrib-dynamorse-core').Timecode;
+const redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
+const util = require('util');
+const promisify = util.promisify ? util.promisify : require('util.promisify');
+const klv = require('kelvinadon');
+const fs = require('fs');
+const url = require('url');
+const H = require('highland');
+const Grain = require('node-red-contrib-dynamorse-core').Grain;
+const Timecode = require('node-red-contrib-dynamorse-core').Timecode;
 
-var fsaccess = util.promisify(fs.access);
+const fsaccess = promisify(fs.access);
+
 function makeTags(x) {
   if (!x.description) return {};
-  switch (x.description.ObjectClass) {
+  var des = x.description;
+  var tags = { descriptor : des.ObjectClass };
+  switch (des.ObjectClass) {
   case 'MPEGVideoDescriptor':
-    var tags = { descriptor : 'MPEGVideoDescriptor' };
     tags.clockRate = '90000';
-    tags.width = x.description.StoredWidth;
-    tags.height = (x.description.FrameLayout === 'SeparateFields') ?
-      2 * x.description.StoredHeight : x.description.StoredHeight;
-    tags.depth = x.description.ComponentDepth;
+    tags.width = des.StoredWidth;
+    tags.height = (des.FrameLayout === 'SeparateFields') ?
+      2 * des.StoredHeight : des.StoredHeight;
+    tags.depth = des.ComponentDepth;
     tags.format = 'video';
     tags.encodingName = 'H264'; // TODO fix up ... could be MPEG-2 video?
-    if (!x.description.VerticalSubsampling) x.description.VerticalSubsampling = 1;
-    switch (x.description.HorizontalSubsampling << 4 |
-        x.description.VerticalSubsampling) {
+    if (!des.VerticalSubsampling) des.VerticalSubsampling = 1;
+    switch ( des.HorizontalSubsampling << 4 | des.VerticalSubsampling ) {
     case 0x11: tags.sampling = 'YCbCr-4:4:4'; break;
     case 0x21: tags.sampling = 'YCbCr-4:2:2'; break;
     case 0x22: tags.sampling = 'YCbCr-4:2:0'; break;
     case 0x41: tags.sampling = 'YCbCr-4:1:1'; break;
     default: break;
     }
-    switch (x.description.CodingEquations) {
-    case '060e2b34-0401-0101-0401-010102010000':
+    switch (des.CodingEquations) {
+    case 'CodingEquations_ITU601':
       tags.colorimetry = 'BT601-5'; break;
-    case '060e2b34.04010101.04010101.02020000':
-      tags.colorimetry = 'BT709-2'; break;
-    case '':
+    case 'CodingEquations_SMPTE240M':
       tags.colorimetry = 'SMPTE240M'; break;
+    case 'CodingEquations_ITU2020_NCL':
+      tags.colorimetry = 'BT2020-2'; break;
+    case 'CodingEquations_ITU709':
     default:
       tags.colorimetry = 'BT709-2'; break;
     }
-    tags.sampleRate =
-      x.description.SampleRate[0]/x.description.SampleRate[1];
-    tags.interlace =
-      (x.description.FrameLayout === 'SeparateFields');
+    tags.sampleRate = des.SampleRate[0]/des.SampleRate[1];
+    tags.interlace = (des.FrameLayout === 'SeparateFields');
+    if (Array.isArray(des.SampleRate)) {
+      tags.grainDuration = [des.SampleRate[1], des.SampleRate[0]];
+    }
+    return tags;
+  case 'CDCIDescriptor':
+    tags.clockRate = '90000';
+    tags.width = des.StoredWidth;
+    tags.height = (des.FrameLayout === 'SeparateFields') ?
+      2 * des.StoredHeight : des.StoredHeight;
+    tags.depth = des.ComponentDepth;
+    tags.format = 'video';
+    tags.encodingName = 'H264'; // TODO fix up ... could be MPEG-2 video?
+    if (!des.VerticalSubsampling) des.VerticalSubsampling = 1;
+    switch (des.HorizontalSubsampling << 4 | des.VerticalSubsampling) {
+    case 0x11: tags.sampling = 'YCbCr-4:4:4'; break;
+    case 0x21: tags.sampling = 'YCbCr-4:2:2'; break;
+    case 0x22: tags.sampling = 'YCbCr-4:2:0'; break;
+    case 0x41: tags.sampling = 'YCbCr-4:1:1'; break;
+    default: break;
+    }
+    switch (des.CodingEquations) {
+    case 'CodingEquations_ITU601':
+      tags.colorimetry = 'BT601-5'; break;
+    case 'CodingEquations_SMPTE240M':
+      tags.colorimetry = 'SMPTE240M'; break;
+    case 'CodingEquations_ITU2020_NCL':
+      tags.colorimetry = 'BT2020-2'; break;
+    case 'CodingEquations_ITU709':
+    default:
+      tags.colorimetry = 'BT709-2'; break;
+    }
+    tags.sampleRate = des.SampleRate[0]/des.SampleRate[1];
+    tags.interlace = (des.FrameLayout === 'SeparateFields');
+    if (Array.isArray(des.SampleRate)) {
+      tags.grainDuration = [des.SampleRate[1], des.SampleRate[0]];
+    }
     return tags;
   default:
     return {};
@@ -70,11 +106,8 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     redioactive.Funnel.call(this, config);
 
-    var node = this;
-    this.config = config;
-
-    this.flowID = null;
-    this.sourceID = null;
+    this.flow_id = null;
+    this.source_id = null;
     this.tags = {};
     this.grainDuration = [ 0, 1 ];
     this.grainCount = 0;
@@ -83,11 +116,12 @@ module.exports = function (RED) {
     var mxfurl = url.parse(config.mxfUrl);
     switch (mxfurl.protocol) {
     case 'file:':
-      fsaccess(mxfurl.pathname, fs.R_OK)
+      var pathname = mxfurl.pathname.replace(/%20/g, ' ');
+      fsaccess(pathname, fs.R_OK)
         .then(() => {
-          node.highland(
+          this.highland(
             H((push, next) => {
-              push(null, H(fs.createReadStream(mxfurl.pathname)));
+              push(null, H(fs.createReadStream(pathname)));
               next();
             })
               .take(config.loop ? Number.MAX_SAFE_INTEGER : 1)
@@ -99,19 +133,19 @@ module.exports = function (RED) {
               .through(klv.puppeteer())
               .through(klv.trackCacher())
               .through(klv.essenceFilter('picture0'))
-              .flatMap(node.extractFlowAndSource.bind(node))
+              .doto(x => { if (!this.flow_id) this.extractFlowAndSource(x); })
               .map(x => {
                 var grainTime = Buffer.allocUnsafe(10);
-                grainTime.writeUIntBE(node.baseTime[0], 0, 6);
-                grainTime.writeUInt32BE(node.baseTime[1], 6);
-                node.baseTime[1] = ( node.baseTime[1] +
-                  node.grainDuration[0] * 1000000000 / node.grainDuration[1]|0 );
-                node.baseTime = [ node.baseTime[0] + node.baseTime[1] / 1000000000|0,
-                  node.baseTime[1] % 1000000000];
+                grainTime.writeUIntBE(this.baseTime[0], 0, 6);
+                grainTime.writeUInt32BE(this.baseTime[1], 6);
+                this.baseTime[1] = ( this.baseTime[1] +
+                  this.grainDuration[0] * 1000000000 / this.grainDuration[1]|0 );
+                this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
+                  this.baseTime[1] % 1000000000];
                 var timecode = null;
                 if (x.startTimecode) {
                   var startTC = x.startTimecode;
-                  var baseTC = startTC.StartTimecode + node.grainCount;
+                  var baseTC = startTC.StartTimecode + this.grainCount;
                   timecode = new Timecode( // FIXME drop frame calculations
                     baseTC / (3600 * startTC.FramesPerSecond)|0,
                     (baseTC / (60 * startTC.FramesPerSecond)|0) % 60,
@@ -119,21 +153,21 @@ module.exports = function (RED) {
                     baseTC % startTC.FramesPerSecond,
                     startTC.DropFrame, true);
                 }
-                node.grainCount++;
+                this.grainCount++;
                 return new Grain(x.value, grainTime, grainTime, timecode,
-                  node.flowID, node.sourceID, node.grainDuration);
+                  this.flow_id, this.source_id, this.grainDuration);
               })
-              .errors(e => node.warn(e))
+              .errors(e => this.warn(e))
           );
         })
-        .catch(node.preFlightError);
+        .catch(this.preFlightError);
       break;
     case 'http:':
       break;
     case 'ftp:':
       break;
     default:
-      node.preFlightError('MXF URL must be either file, http or ftp.');
+      this.preFlightError('MXF URL must be either file, http or ftp.');
       break;
     }
   }
@@ -141,20 +175,16 @@ module.exports = function (RED) {
   RED.nodes.registerType('mxf-in', MXFIn);
 
   MXFIn.prototype.extractFlowAndSource = function (x) {
-    if (!this.flowID) {
-      this.tags = makeTags(x);
-      if (x.description && x.description.SampleRate) {
-        this.grainDuration = [ x.description.SampleRate[1], x.description.SampleRate[0] ];
-      }
-
-      let cableSpec = {};
-      cableSpec[this.tags.format] = [{ tags : this.tags }];
-      cableSpec.backPressure = `${this.tags.format}[0]`;
-      this.makeCable(cableSpec);
-      this.flowID = this.flowID();
-      this.sourceID = this.sourceID();
+    this.tags = makeTags(x);
+    if (this.tags.grainDuration) {
+      this.grainDuration = this.tags.grainDuration;
     }
 
-    return H([x]);
+    let cableSpec = {};
+    cableSpec[this.tags.format] = [{ tags : this.tags }];
+    cableSpec.backPressure = `${this.tags.format}[0]`;
+    this.makeCable(cableSpec);
+    this.flow_id = this.flowID();
+    this.source_id = this.sourceID();
   };
 };

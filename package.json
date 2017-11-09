@@ -11,15 +11,16 @@
     "aws-sdk": "^2.137.0",
     "codecadon": "^0.1.11",
     "highland": "^2.11.1",
-    "kelvinadon": "^0.1.2",
+    "kelvinadon": "^0.2.2",
     "micromatch": "^3.1.0",
     "util.promisify": "^1.0.0",
     "uuid": "^2.0.1"
   },
   "devDependencies": {
-    "tape": "^4.8.0",
+    "dynamorse-test": "^0.1.1",
     "eslint": "^4.9.0",
-    "dynamorse-test": "^0.1.1"
+    "eslint-config-google": "^0.9.1",
+    "tape": "^4.8.0"
   },
   "scripts": {
     "test": "tape test/*Spec.js",
