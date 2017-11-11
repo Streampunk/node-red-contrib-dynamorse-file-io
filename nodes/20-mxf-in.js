@@ -183,8 +183,8 @@ module.exports = function (RED) {
                 // FIXME adjust for origin, use timecode, base date from package created
                 var grainTime = Buffer.allocUnsafe(10);
                 var nanosExtra = ( t.grainCount++ *
-                  t.tags.grainDuration[0] / t.tags.grainDuration[1] ) * 1000000000;
-                var timeParts = [ this.baseTime[1] + (this.baseTime[0] + nanosExtra) / 1000000000|0,
+                  t.tags.grainDuration[0] / t.tags.grainDuration[1] ) * 1000000000 + this.baseTime[1];
+                var timeParts = [ this.baseTime[0] + nanosExtra / 1000000000|0,
                   nanosExtra % 1000000000|0];
                 grainTime.writeUIntBE(timeParts[0], 0, 6);
                 grainTime.writeUInt32BE(timeParts[1], 6);
