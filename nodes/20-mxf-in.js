@@ -22,13 +22,31 @@ const url = require('url');
 const H = require('highland');
 const Grain = require('node-red-contrib-dynamorse-core').Grain;
 const Timecode = require('node-red-contrib-dynamorse-core').Timecode;
+const crypto = require('crypto');
+const uuid = require('uuid');
+const swapBytes = require('../util/swapBytes.js');
 
 const fsaccess = promisify(fs.access);
+
+function makeID (pkid, trkID) {
+  var hash = crypto.createHash('sha1');
+  hash.update(Buffer.from(uuid.parse(pkid)));
+  hash.update(typeof trkID === 'number' ? 'TrackID' + trkID : trkID, 'utf8');
+  var dig = hash.digest();
+  // Make a legal V5 UUID identifier wrt rfc4122
+  dig[6] = (dig[6] & 0x0f) | 0x50;
+  dig[8] = (dig[8] & 0x3f) | 0x80;
+  return uuid.unparse(dig);
+}
 
 function makeTags(x) {
   if (!x.description) return {};
   var des = x.description;
-  var tags = { descriptor : des.ObjectClass };
+  var tags = {
+    descriptor : des.ObjectClass,
+    sourceID: makeID(x.sourcePackageID[1], x.track.TrackID),
+    flowID: uuid.v4()
+  };
   switch (des.ObjectClass) {
   case 'MPEGVideoDescriptor':
     tags.clockRate = '90000';
@@ -96,8 +114,32 @@ function makeTags(x) {
       tags.grainDuration = [des.SampleRate[1], des.SampleRate[0]];
     }
     return tags;
+  case 'AES3PCMDescriptor':
+    tags.clockRate = des.AudioSampleRate[1] === 1 ? des.AudioSampleRate[0] : 48000;
+    tags.format = 'audio';
+    tags.channels = des.ChannelCount;
+    tags.encodingName = `L${des.QuantizationBits}`;
+    tags.bitsPerSample = des.QuantizationBits;
+    tags.blockAlign = des.BlockAlign;
+    tags.grainDuration = [ x.track.EditRate[1], x.track.EditRate[0] ];
+    return tags;
   default:
     return {};
+  }
+}
+
+function addTracks(tracks, config, mxfType, format, min, max) {
+  for ( var i = min ; i <= max; i++ ) {
+    if (config[`${mxfType}Track${i}`]) {
+      tracks.push({
+        mxfType: mxfType,
+        format: format,
+        index: i,
+        filter: `${mxfType}${i}`,
+        name: `${format}${i}`,
+        grainCount: 0
+      });
+    }
   }
 }
 
@@ -106,12 +148,13 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     redioactive.Funnel.call(this, config);
 
-    this.flow_id = null;
-    this.source_id = null;
-    this.tags = {};
-    this.grainDuration = [ 0, 1 ];
-    this.grainCount = 0;
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
+    this.cable = null;
+
+    var tracks = [];
+    addTracks(tracks, this.config, 'picture', 'video', 0, 1);
+    addTracks(tracks, this.config, 'sound', 'audio', 0, 15);
+    addTracks(tracks, this.config, 'data', 'anc', 0, 15);
 
     var mxfurl = url.parse(config.mxfUrl);
     switch (mxfurl.protocol) {
@@ -119,7 +162,7 @@ module.exports = function (RED) {
       var pathname = mxfurl.pathname.replace(/%20/g, ' ');
       fsaccess(pathname, fs.R_OK)
         .then(() => {
-          this.highland(
+          var baseStream =
             H((push, next) => {
               push(null, H(fs.createReadStream(pathname)));
               next();
@@ -131,17 +174,20 @@ module.exports = function (RED) {
               .through(klv.stripTheFiller)
               .through(klv.detailing())
               .through(klv.puppeteer())
-              .through(klv.trackCacher())
-              .through(klv.essenceFilter('picture0'))
-              .doto(x => { if (!this.flow_id) this.extractFlowAndSource(x); })
+              .through(klv.trackCacher());
+          var streams = tracks.map(t => {
+            return baseStream.fork()
+              .through(klv.essenceFilter(t.filter))
+              .doto(x => { if (!t.tags) t.tags = makeTags(x); })
               .map(x => {
+                // FIXME adjust for origin, use timecode, base date from package created
                 var grainTime = Buffer.allocUnsafe(10);
-                grainTime.writeUIntBE(this.baseTime[0], 0, 6);
-                grainTime.writeUInt32BE(this.baseTime[1], 6);
-                this.baseTime[1] = ( this.baseTime[1] +
-                  this.grainDuration[0] * 1000000000 / this.grainDuration[1]|0 );
-                this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,
-                  this.baseTime[1] % 1000000000];
+                var nanosExtra = ( t.grainCount++ *
+                  t.tags.grainDuration[0] / t.tags.grainDuration[1] ) * 1000000000;
+                var timeParts = [ this.baseTime[1] + (this.baseTime[0] + nanosExtra) / 1000000000|0,
+                  nanosExtra % 1000000000|0];
+                grainTime.writeUIntBE(timeParts[0], 0, 6);
+                grainTime.writeUInt32BE(timeParts[1], 6);
                 var timecode = null;
                 if (x.startTimecode) {
                   var startTC = x.startTimecode;
@@ -153,12 +199,32 @@ module.exports = function (RED) {
                     baseTC % startTC.FramesPerSecond,
                     startTC.DropFrame, true);
                 }
-                this.grainCount++;
+                if (t.format === 'audio') {
+                  x.value = x.value.map(y => swapBytes(y, t.tags.bitsPerSample));
+                }
                 return new Grain(x.value, grainTime, grainTime, timecode,
-                  this.flow_id, this.source_id, this.grainDuration);
-              })
-              .errors(e => this.warn(e))
-          );
+                  t.tags.flowID, t.tags.sourceID, t.tags.grainDuration);
+              });
+          });
+          this.highland(H(streams)
+            .merge()
+            .doto(() => {
+              if (!this.cable && tracks.every(x => x.tags !== undefined)) {
+                let cableSpec = {};
+                for ( let track of tracks ) {
+                  if (!cableSpec[track.format]) cableSpec[track.format] = [];
+                  cableSpec[track.format].push({
+                    name: track.name,
+                    tags : track.tags,
+                    flowID: track.tags.flowID,
+                    sourceID: track.tags.sourceID
+                  });
+                }
+                this.cable = this.makeCable(cableSpec);
+              }
+            })
+            .errors(e => this.error(e)));
+          baseStream.resume();
         })
         .catch(this.preFlightError);
       break;
@@ -174,17 +240,16 @@ module.exports = function (RED) {
   util.inherits(MXFIn, redioactive.Funnel);
   RED.nodes.registerType('mxf-in', MXFIn);
 
-  MXFIn.prototype.extractFlowAndSource = function (x) {
-    this.tags = makeTags(x);
-    if (this.tags.grainDuration) {
-      this.grainDuration = this.tags.grainDuration;
-    }
-
-    let cableSpec = {};
-    cableSpec[this.tags.format] = [{ tags : this.tags }];
-    cableSpec.backPressure = `${this.tags.format}[0]`;
-    this.makeCable(cableSpec);
-    this.flow_id = this.flowID();
-    this.source_id = this.sourceID();
-  };
+//   MXFIn.prototype.extractFlowAndSource = function (x, t) {
+//     t.tags = makeTags(x);
+//
+//     let cableSpec = {};
+//     cableSpec[this.tags.format] = [{ tags : this.tags }];
+//     cableSpec.backPressure = `${this.tags.format}[0]`;
+//     this.makeCable(cableSpec);
+//     this[`${strid}_flow_id`] = this.flowID();
+//     this[`${strid}_source_id`] = this.sourceID();
+//     this[`${strid}_grainCount`] = 0;
+//   };
+// };
 };

@@ -13,12 +13,13 @@
   limitations under the License.
 */
 
-var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
-var util = require('util');
-var fs = require('fs');
-var path = require('path');
-var Grain = require('node-red-contrib-dynamorse-core').Grain;
-var uuid = require('uuid');
+const redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
+const util = require('util');
+const fs = require('fs');
+const path = require('path');
+const Grain = require('node-red-contrib-dynamorse-core').Grain;
+const uuid = require('uuid');
+const swapBytes = require('../util/swapBytes.js');
 
 module.exports = function (RED) {
   function WAVOut (config) {
@@ -108,29 +109,4 @@ module.exports = function (RED) {
   }
   util.inherits(WAVOut, redioactive.Spout);
   RED.nodes.registerType('wav-out', WAVOut);
-
-  function swapBytes(x, bitsPerSample) {
-    var tmp = 0|0;
-    x.buffers.forEach(x => {
-      switch (bitsPerSample) {
-      case 24:
-        for ( let y = 0|0 ; y < x.length ; y += 3|0 ) {
-          tmp = x[y];
-          x[y] = x[y + 2];
-          x[y + 2] = tmp;
-        }
-        break;
-      case 16:
-        for ( let y = 0|0 ; y < x.length ; y += 2|0 ) {
-          tmp = x[y];
-          x[y] = x[y + 1];
-          x[y + 1] = tmp;
-        }
-        break;
-      default: // No swap
-        break;
-      }
-    });
-    return x.buffers[0];
-  }
 };
