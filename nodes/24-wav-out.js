@@ -80,7 +80,7 @@ module.exports = function (RED) {
           return next();
 
         if (begin === null) begin = process.hrtime();
-        this.wavStream.write(swapBytes(x, this.bitsPerSample), () => {
+        this.wavStream.write(swapBytes(x.buffers[0], this.bitsPerSample), () => {
           sentCount++;
           if (config.timeout === 0) {
             setImmediate(next);
