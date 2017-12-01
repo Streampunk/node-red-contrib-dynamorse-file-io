@@ -115,6 +115,7 @@ function makeTags(x) {
     }
     return tags;
   case 'AES3PCMDescriptor':
+  case 'WAVEPCMDescriptor':
     tags.clockRate = des.AudioSampleRate[1] === 1 ? des.AudioSampleRate[0] : 48000;
     tags.format = 'audio';
     tags.channels = des.ChannelCount;
