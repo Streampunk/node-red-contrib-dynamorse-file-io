@@ -13,21 +13,22 @@
   limitations under the License.
 */
 
-var TestUtil = require('dynamorse-test').TestUtil;
+const TestUtil = require('dynamorse-test');
 
-var rawInTestNode = JSON.stringify({
-  'type': 'raw-file-in',
-  'z': TestUtil.testFlowId,
-  'name': 'raw-file-in-test',
-  'grainDuration' : '0/1',
-  'maxBuffer': 10,
-  'wsPort': TestUtil.properties.wsPort,
-  'x': 100.0,
-  'y': 100.0,
-  'wires': [[]]
+const rawInTestNode = () => ({
+  type: 'raw-file-in',
+  z: TestUtil.testFlowId,
+  name: 'raw-file-in-test',
+  grainDuration: '0/1',
+  maxBuffer: 10,
+  wsPort: TestUtil.properties.wsPort,
+  x: 100.0,
+  y: 100.0,
+  wires: [[]]
 });
-var rawInNodeId = '24fde3d7.b7544c';
-var spoutNodeId = 'f2186999.7e5f78';
+
+const rawInNodeId = '24fde3d7.b7544c';
+const spoutNodeId = 'f2186999.7e5f78';
 
 TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
   rawFilename: __dirname + '/data/testRaw.raw',
@@ -35,17 +36,19 @@ TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
   maxBuffer: 10,
   spoutTimeout: 0
 }, params => {
-  var testFlow = JSON.parse(TestUtil.testNodes.baseTestFlow);
-  testFlow.nodes[0] = JSON.parse(rawInTestNode);
-  testFlow.nodes[0].id = rawInNodeId;
-  testFlow.nodes[0].file = params.rawFilename,
-  testFlow.nodes[0].sdpURL = `file:${params.sdpFilename}`,
-  testFlow.nodes[0].maxBuffer = params.maxBuffer;
-  testFlow.nodes[0].wires[0][0] = spoutNodeId;
+  var testFlow = TestUtil.testNodes.baseTestFlow();
+  testFlow.nodes.push(Object.assign(rawInTestNode(), {
+    id: rawInNodeId,
+    file: params.rawFilename,
+    sdpURL: `file:${params.sdpFilename}`,
+    maxBuffer: params.maxBuffer,
+    wires: [ [ spoutNodeId ] ]
+  }));
 
-  testFlow.nodes[1] = JSON.parse(TestUtil.testNodes.spoutTestNode);
-  testFlow.nodes[1].id = spoutNodeId;
-  testFlow.nodes[1].timeout = params.spoutTimeout;
+  testFlow.nodes.push(Object.assign(TestUtil.testNodes.spoutTestNode(),{
+    id: spoutNodeId,
+    timeout: params.spoutTimeout
+  }));
   return testFlow;
 }, (t, params, msgObj, onEnd) => {
   //t.comment(`Message: ${JSON.stringify(msgObj)}`);
@@ -56,4 +59,3 @@ TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
     onEnd();
   }
 });
-
