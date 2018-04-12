@@ -44,7 +44,7 @@ function makeTags(x) {
   var des = x.description;
   var tags = {
     descriptor : des.ObjectClass,
-    sourceID: makeID(x.sourcePackageID[1], x.track.TrackID),
+    sourceID: x.sourcePackageID ? makeID(x.sourcePackageID[1], x.track.TrackID) : uuid.v4(),
     flowID: uuid.v4()
   };
   switch (des.ObjectClass) {
