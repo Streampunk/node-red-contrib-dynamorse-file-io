@@ -10,6 +10,7 @@
   "dependencies": {
     "aws-sdk": "^2.224.1",
     "codecadon": "^0.1.17",
+    "get-uri": "^2.0.2",
     "highland": "^2.13.0",
     "kelvinadon": "^0.2.5",
     "micromatch": "^3.1.10",

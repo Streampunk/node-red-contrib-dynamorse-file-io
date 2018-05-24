@@ -16,9 +16,10 @@
 const redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 const util = require('util');
 const H = require('highland');
-const fs = require('fs');
+const getUri = util.promisify(require('get-uri'));
 const Grain = require('node-red-contrib-dynamorse-core').Grain;
 const swapBytes = require('../util/swapBytes.js');
+const resolveURI = require('../util/resolveURI.js');
 
 function wavInlet(file, loop, grps) {
   var bitsPerSample = 16;
@@ -119,8 +120,12 @@ function wavInlet(file, loop, grps) {
     }
   };
   return H((push, next) => {
-    push(null, H(fs.createReadStream(file)));
-    next();
+    getUri(resolveURI(file)).then(
+      s => {
+        push(null, H(s));
+        next();
+      },
+      e => { push(e); });
   })
     .take(loop ? Number.MAX_SAFE_INTEGER : 1)
     .sequence()
@@ -132,11 +137,11 @@ module.exports = function (RED) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
 
-    fs.access(config.file, fs.R_OK, e => {
+    /* fs.access(config.file, fs.R_OK, e => {
       if (e) {
         return this.preFlightError(e);
       }
-    });
+    }); */
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.blockAlign = 4;
     this.sampleRate = 48000;
