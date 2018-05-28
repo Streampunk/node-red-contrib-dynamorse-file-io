@@ -15,6 +15,7 @@
 
 const test = require('tape');
 const resolveUri = require('../util/resolveURI.js');
+const swapBytes = require('../util/swapBytes.js');
 const fileURIToPath = require('file-uri-to-path');
 const { sep } = require('path');
 
@@ -53,5 +54,32 @@ test('Resolving other protocols are not altered', t => {
   for ( let u of testURLs) {
     t.equal(resolveUri(u), u, `URL ${u} is not alterred.`);
   }
+  t.end();
+});
+
+test('Swapping bytes', t => {
+  t.deepEqual(swapBytes(Buffer.alloc(0), 16), Buffer.alloc(0),
+    'works for empty buffes.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2]), 16), Buffer.from([2, 1]),
+    'swaps two bytes for 16 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2, 3]), 24), Buffer.from([3, 2, 1]),
+    'swaps three bytes for 24 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2, 3]), 16), Buffer.from([2, 1, 3]),
+    'swaps three bytes for 16 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2, 3, 4]), 24), Buffer.from([3, 2, 1, 4]),
+    'swaps four bytes for 24 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2, 3, 4, 5]), 24), Buffer.from([3, 2, 1, 4, 5]),
+    'swaps five bytes for 24 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1]), 16), Buffer.from([1]),
+    'swaps one byte for 16 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1]), 24), Buffer.from([1]),
+    'swaps one byte for 24 bits per sample OK.');
+  t.deepEqual(swapBytes(Buffer.from([1, 2]), 24), Buffer.from([1, 2]),
+    'swaps two bytes for 24 bits per sample OK.');
+  // TODO - consider whether this should throw an exception?
+  t.deepEqual(swapBytes(Buffer.from([1, 2, 3, 4, 5]), 17), Buffer.from([1, 2, 3, 4, 5]),
+    'does not swap bytes for an unknown bit depth.');
+  let b = Buffer.from([5, 4, 3, 2, 1]);
+  t.equal(swapBytes(b, 16), b, 'returns the same buffer.');
   t.end();
 });
