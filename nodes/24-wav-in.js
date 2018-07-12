@@ -1,4 +1,4 @@
-/* Copyright 2017 Streampunk Media Ltd.
+/* Copyright 2018 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -16,22 +16,23 @@
 const redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 const util = require('util');
 const H = require('highland');
-const fs = require('fs');
+const getUri = util.promisify(require('get-uri'));
 const Grain = require('node-red-contrib-dynamorse-core').Grain;
 const swapBytes = require('../util/swapBytes.js');
+const resolveURI = require('../util/resolveURI.js');
 
 function wavInlet(file, loop, grps) {
-  var bitsPerSample = 16;
-  var channels = 2;
-  var blockAlign = 4;
-  var sampleRate = 48000;
-  var foundHeader = false;
-  var foundData = false;
-  var grainCount = 0;
-  var leftOver = null;
-  var pattern = [ 1902 ];
-  var nextLen = 0;
-  var wavConsumer = (err, b, push, next) => {
+  let bitsPerSample = 16;
+  let channels = 2;
+  let blockAlign = 4;
+  let sampleRate = 48000;
+  let foundHeader = false;
+  let foundData = false;
+  let grainCount = 0;
+  let leftOver = null;
+  let pattern = [ 1902 ];
+  let nextLen = 0;
+  let wavConsumer = (err, b, push, next) => {
     if (err) {
       push(err);
       next();
@@ -40,7 +41,7 @@ function wavInlet(file, loop, grps) {
       if (leftOver && leftOver.length > 0) push (null, leftOver);
       push(null, b);
     } else {
-      var position = 0;
+      let position = 0;
       if (b.length >= 36 &&
           b.readUInt32BE(0) === 0x52494646 && // RIFF
           b.readUInt32BE(8) == 0x57415645) { // WAVE
@@ -48,27 +49,34 @@ function wavInlet(file, loop, grps) {
         channels = b.readUInt16LE(22);
         sampleRate = b.readUInt32LE(24);
         blockAlign = b.readUInt16LE(32);
-        var grainDuration = null;
-        switch (grps) {
-        default:
-        case '25':
-          grainDuration = [ 1, 25 ];
-          pattern = [ 1920 ];
-          break;
-        case '29.97':
-          grainDuration = [ 1001, 30000 ];
-          pattern = [ 1602, 1601, 1602, 1601, 1602 ];
-          break;
-        case '50':
-          grainDuration = [ 1, 50 ];
-          pattern = [ 960 ];
-          break;
-        case '59.94':
-          grainDuration = [ 1001, 60000 ];
-          pattern = [ 801, 801, 801, 800, 801, 801, 801, 800, 801, 801 ];
-          break;
+        let grainDuration = null;
+        if (sampleRate % 48000 === 0) {
+          let factor = sampleRate / 48000|0;
+          switch (grps) {
+          default:
+          case '25':
+            grainDuration = [ 1, 25 ];
+            pattern = [ 1920 * factor ];
+            break;
+          case '29.97':
+            grainDuration = [ 1001, 30000 ];
+            pattern = [ 1602, 1601, 1602, 1601, 1602 ].map(x => x * factor);
+            break;
+          case '50':
+            grainDuration = [ 1, 50 ];
+            pattern = [ 960 * factor ];
+            break;
+          case '59.94':
+            grainDuration = [ 1001, 60000 ];
+            pattern = [ 801, 801, 800, 801, 801 ].map(x => x * factor);
+            break;
+          }
+        } else { // FIXME - will produce inaccurate results
+          let samplesPerGrain = Math.round(sampleRate / +grps);
+          pattern = [ samplesPerGrain ];
+          grainDuration = [ samplesPerGrain, sampleRate ];
         }
-        var tags = {
+        let tags = {
           format : 'audio',
           channels : channels,
           clockRate : sampleRate,
@@ -93,7 +101,7 @@ function wavInlet(file, loop, grps) {
           nextLen = pattern[grainCount % pattern.length] * blockAlign;
           if (leftOver && leftOver.length > 0 &&
               position + nextLen - leftOver.length <= b.length) {
-            var overlap = Buffer.concat(
+            let overlap = Buffer.concat(
               [leftOver, b.slice(position, position + nextLen - leftOver.length)],
               nextLen);
             push(null, swapBytes(overlap, bitsPerSample));
@@ -119,8 +127,12 @@ function wavInlet(file, loop, grps) {
     }
   };
   return H((push, next) => {
-    push(null, H(fs.createReadStream(file)));
-    next();
+    getUri(resolveURI(file)).then(
+      s => {
+        push(null, H(s));
+        next();
+      },
+      e => { push(e); });
   })
     .take(loop ? Number.MAX_SAFE_INTEGER : 1)
     .sequence()
@@ -132,16 +144,16 @@ module.exports = function (RED) {
     RED.nodes.createNode(this,config);
     redioactive.Funnel.call(this, config);
 
-    fs.access(config.file, fs.R_OK, e => {
+    /* fs.access(config.file, fs.R_OK, e => {
       if (e) {
         return this.preFlightError(e);
       }
-    });
+    }); */
     this.baseTime = [ Date.now() / 1000|0, (Date.now() % 1000) * 1000000 ];
     this.blockAlign = 4;
     this.sampleRate = 48000;
-    var flowID = null;
-    var sourceID = null;
+    let flowID = null;
+    let sourceID = null;
 
     this.highland(
       wavInlet(config.file, config.loop, config.grps)
@@ -156,10 +168,10 @@ module.exports = function (RED) {
         })
         .filter(Buffer.isBuffer)
         .map(b => {
-          var grainTime = Buffer.allocUnsafe(10);
+          let grainTime = Buffer.allocUnsafe(10);
           grainTime.writeUIntBE(this.baseTime[0], 0, 6);
           grainTime.writeUInt32BE(this.baseTime[1], 6);
-          var grainDuration = [ b.length / this.blockAlign|0, this.sampleRate ];
+          let grainDuration = [ b.length / this.blockAlign|0, this.sampleRate ];
           this.baseTime[1] = ( this.baseTime[1] +
             grainDuration[0] * 1000000000 / grainDuration[1]|0 );
           this.baseTime = [ this.baseTime[0] + this.baseTime[1] / 1000000000|0,

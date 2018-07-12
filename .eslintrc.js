@@ -19,5 +19,8 @@ module.exports = {
         ],
         "no-console": "off",
         "prefer-arrow-callback": "error"
+    },
+    "parserOptions": {
+      "ecmaVersion": 2017
     }
 };

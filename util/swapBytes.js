@@ -1,4 +1,4 @@
-/* Copyright 2017 Streampunk Media Ltd.
+/* Copyright 2018 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
 */
 
 module.exports = function swapBytes(x, bitsPerSample) {
-  var tmp = 0|0;
+  let tmp = 0|0;
   switch (bitsPerSample) {
   case 24:
-    for ( let y = 0|0 ; y < x.length ; y += 3|0 ) {
+    for ( let y = 0|0 ; y < x.length - 2; y += 3|0 ) {
       tmp = x[y];
       x[y] = x[y + 2];
       x[y + 2] = tmp;
     }
     break;
   case 16:
-    for ( let y = 0|0 ; y < x.length ; y += 2|0 ) {
+    for ( let y = 0|0 ; y < x.length - 1; y += 2|0 ) {
       tmp = x[y];
       x[y] = x[y + 1];
       x[y + 1] = tmp;

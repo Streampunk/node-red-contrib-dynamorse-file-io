@@ -1,5 +1,5 @@
 <!--
-  Copyright 2017 Streampunk Media Ltd.
+  Copyright 2018 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
   <input type="text" id="node-input-name" placeholder="name">
 </div>
 <div class="form-row">
-  <label for="node-input-file"><i class="fa fa-file"></i> WAV file</label>
+  <label for="node-input-file"><i class="fa fa-file"></i> WAV URL</label>
   <input type="text" id="node-input-file" placeholder="dynamorse.wav">
 </div>
 <div class="form-row">
@@ -90,8 +90,9 @@
     <td>Name of the node. Also used as source &amp; flow label.</td>
    </tr>
    <tr>
-    <td><i class="fa fa-file"></i> WAV file</td>
-    <td>Path location for the WAVE format input file.</td>
+    <td><i class="fa fa-file"></i> WAV URL</td>
+    <td>Location for the WAVE format input. With not protocol, defaults to
+    a relative file reference.</td>
    </tr>
    <tr>
     <td><i class="fa fa-info-circle"></i> description</td>
