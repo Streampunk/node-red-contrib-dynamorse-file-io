@@ -27,7 +27,6 @@
           && slashed[0] >=0 && slashed[1] > 0;
       } },
       headers : { value : '' },
-      parallel : { value : 10, validate : RED.validators.number() },
       loop : { value : false },
       regenerate : { value : false },
       description : { value : '' },
@@ -68,8 +67,6 @@
   <div class="form-row">
     <label for="node-input-grainDuration"><i class="fa fa-tint" aria-hidden="true"></i> duration</label>
     <input type="text" id="node-input-grainDuration" placeholder="0/1" style="width: 100px">
-    <label for="node-input-parallel">&nbsp;<i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</label>
-    <input type="number" min="1" placeholder="10" id="node-input-parallel" style="width: 100px">
   </div>
   <div class="form-row">
     <label for="node-input-headers"><i class="fa fa-file-text" aria-hidden="true"></i> headers</label>
@@ -261,10 +258,6 @@
     <td><i class="fa fa-tint" aria-hidden="true"></i> duration</td>
     <td>Duration of each grain as a fraction of a second. Required to regenerate
     timings when no headers.</td>
-   </tr>
-   <tr>
-    <td><i class="fa fa-fighter-jet" aria-hidden="true"></i> parallel</td>
-    <td>Maximum number of parallel file reads.</td>
    </tr>
    <tr>
     <td><i class="fa fa-file-text" aria-hidden="true"></i> headers</td>
