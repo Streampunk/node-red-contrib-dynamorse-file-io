@@ -30,8 +30,9 @@ module.exports = function (RED) {
   var fsaccess = util.promisify(fs.access);
   var fsreadFile = util.promisify(fs.readFile);
   var fsreadDir = util.promisify(fs.readdir);
+  var fsStat = util.promisify(fs.stat);
   var readdir = H.wrapCallback(fs.readdir);
-  var readFile = H.wrapCallback(fs.read, (bytesRead, buffer) => buffer.slice(0, bytesRead));
+  var readFile = H.wrapCallback(fs.read, (bytesRead, buffer) => buffer);
   var openFile = H.wrapCallback(fs.open);
 
   function GlobIn (config) {
@@ -50,6 +51,9 @@ module.exports = function (RED) {
     this.imageOffset = 0;
     this.flip = { h : false, v : false };
     let frameNum = 0;
+    const headroom = 1;
+    let globBufs = [];
+    let firstFile = '';
     
     this.configDuration = [ +config.grainDuration.split('/')[0],
       +config.grainDuration.split('/')[1] ];
@@ -77,6 +81,29 @@ module.exports = function (RED) {
       break;
     }
 
+    const clContext = RED.nodes.getNode(config.clContext);
+
+    async function makeBuffers(numBytes) {
+      const bufs = [];
+      for (let i=0; i<config.maxBuffer+headroom; ++i) {
+        if (clContext) {
+          const context = await clContext.getContext();
+          bufs.push(await context.createBuffer(numBytes, 'readonly', 'none'));
+        }
+        else
+          bufs.push(Buffer.allocUnsafe(numBytes));
+      }
+      return bufs;
+    }
+
+    async function doRead(fd, buf) {
+      if (buf.hasOwnProperty('hostAccess'))
+        await buf.hostAccess('writeonly');
+
+      return readFile(fd, buf, 0, buf.length, node.imageOffset)
+        .map(buf => { fs.close(fd); return buf; });
+    }
+
     fsaccess(pathParts[0], fs.R_OK)
       .then(() => {
         if (config.headers) {
@@ -87,6 +114,10 @@ module.exports = function (RED) {
         if (+config.grainSize <= 0)
           return Promise.reject(new Error('No header file and grain size is zero.'));
         return Promise.resolve();
+      })
+      .then(() => {
+        return fsreadDir(pathParts[0])
+          .then(paths => firstFile = pathParts[0] + path.sep + paths.filter(y => mm.isMatch(y, pathParts[1])).sort()[0]);
       })
       .then(() => {
         if (config.headers) {
@@ -120,14 +151,10 @@ module.exports = function (RED) {
           });
         } else if ('.dpx' === pathParts[1].slice(-4)) {
           node.log('Creating tags from first dpx file.');
-          return fsreadDir(pathParts[0])
-            .then(paths =>
-              dpx.makeTags(node, pathParts[0] + path.sep + paths.sort()[0]));
+          return dpx.makeTags(node, firstFile);
         } else if ('.tga' === pathParts[1].slice(-4)) {
           node.log('Creating tags from first tga file.');
-          return fsreadDir(pathParts[0])
-            .then(paths => 
-              tga.makeTags(node, pathParts[0] + path.sep + paths.sort()[0])); 
+          return tga.makeTags(node, firstFile);
         } else {
           return null;
         }
@@ -139,6 +166,12 @@ module.exports = function (RED) {
         } else {
           return tags;
         }
+      })
+      .then(tags => {
+        return fsStat(firstFile)
+          .then(stat => 
+            makeBuffers(stat.size - node.imageOffset)
+              .then(bufs => { globBufs = bufs; return tags; }));
       })
       .then(tags => {
         node.tags = tags;
@@ -153,10 +186,6 @@ module.exports = function (RED) {
         flowID = this.flowID();
         sourceID = this.sourceID();
 
-        const headroom = 1;
-        const globBuf = [];
-        let bufBytes = 0;
-
         var readLoop = 0;
         var headerIndex = 0;
         node.highland(
@@ -169,16 +198,7 @@ module.exports = function (RED) {
           })
             .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
             .flatMap(x => openFile(pathParts[0] + path.sep + x, 'r'))
-            .map(fd => {
-              if (0 === globBuf.length) {
-                const stat = fs.fstatSync(fd);
-                bufBytes = stat.size - node.imageOffset;
-                for (let i=0; i<config.maxBuffer+headroom; ++i)
-                  globBuf.push(Buffer.allocUnsafe(bufBytes));
-              }
-              return readFile(fd, globBuf[(frameNum++)%config.maxBuffer+headroom], 0, bufBytes, node.imageOffset)
-                .map(buf => { fs.close(fd); return buf; });
-            })
+            .flatMap(fd => H(doRead(fd, globBufs[(frameNum++)%(config.maxBuffer+headroom)])))
             .series()
             .map(g => {
               if (node.headers.length > 0 && config.regenerate === false) {

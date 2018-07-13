@@ -31,6 +31,7 @@
       regenerate : { value : false },
       description : { value : '' },
       maxBuffer : { value : 10, validate : RED.validators.number() },
+      clContext: { value : "", type : "OpenCL Context", required : false, },
       sdpURL : { value : "" },
       encodingName : { value : "raw" },
       clockRate : { value : 90000, validate : RED.validators.number() },
@@ -42,8 +43,7 @@
       interlace : { value : false },
       packing : { value : "pgroup" },
       channels : { value : 0, validate : RED.validators.number() },
-      bitrate : { value : 0, validate : RED.validators.number() },
-      wsPort : { value : 0, validate : RED.validators.number() }
+      bitrate : { value : 0, validate : RED.validators.number() }
     },
     inputs:0,
     outputs:1,
@@ -85,6 +85,10 @@
   <div class="form-row">
     <label for="node-input-maxBuffer"><i class="fa fa-suitcase"></i> max buffer</label>
     <input type="number" id="node-input-maxBuffer" placeholder="10" style="width: 100px">
+  </div>
+  <div class="form-row">
+    <label for="node-input-clContext"><i class="fa fa-paw"></i> OpenCL Context</label>
+    <input type="text" id="node-input-clContext">
   </div>
   <!-- Media-specific properties, either derived from an SDP file or given parameters -->
   <p>Describe the stream with headers, an SDP file or by providing parameters.</p>
@@ -181,11 +185,6 @@
     <label for="node-input-bitrate" style="text-align: left">
       &nbsp;<i class="fa fa-long-arrow-right"></i> bitrate</label>
     <input type="number" min="0" placeholder="0" id="node-input-bitrate" style="width: 80px">
-  </div>
-
-  <div class="form-row">
-    <label for="node-input-wsPort"><i class="fa fa-eye"></i> websock port</label>
-    <input type="text" id="node-input-wsPort" readonly placeholder="0">
   </div>
 </script>
 
