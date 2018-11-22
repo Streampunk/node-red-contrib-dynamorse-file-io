@@ -14,7 +14,7 @@
 */
 
 const TestUtil = require('dynamorse-test');
-const os = require('os');
+// const os = require('os');
 const fs = require('fs');
 const util = require('util');
 const getUri = util.promisify(require('get-uri'));
@@ -46,14 +46,14 @@ const wavInTestNode = () => ({
   wires: [[]]
 });
 
-const wavOutTestNode = () => ({
-  type: 'wav-out',
-  z: TestUtil.testFlowId,
-  name: 'wav-file-out-test',
-  x: 300.0,
-  y: 100.0,
-  wires: []
-});
+// const wavOutTestNode = () => ({
+//   type: 'wav-out',
+//   z: TestUtil.testFlowId,
+//   name: 'wav-file-out-test',
+//   x: 300.0,
+//   y: 100.0,
+//   wires: []
+// });
 
 const wavInNodeId = '24fde3d7.b7544c';
 const spoutNodeId = 'f2186999.7e5f78';
