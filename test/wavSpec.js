@@ -92,7 +92,7 @@ const wavSpec = () => {
 
   TestUtil.nodeRedTest('A wav-in->wav-out flow is posted to Node-RED', {
     inFilename: path.join(__dirname, 'tmp', 'test.wav'),
-    outFilename: path.join(__dirname, 'tmp', '/testWavOut.wav'),
+    outFilename: path.join(__dirname, 'tmp', 'testWavOut.wav'),
     grainsPerSecond: 25,
     maxBuffer: 10,
     spoutTimeout: 0

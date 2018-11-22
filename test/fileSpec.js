@@ -36,7 +36,33 @@ let download = async (uri, file) => {
   });
 };
 
+const readdir = util.promisify(fs.readdir);
+const lstat = util.promisify(fs.lstat);
+const unlink = util.promisify(fs.unlink);
+
+const removeTmpFiles = async() => {
+  try {
+    const dir = path.join(__dirname, 'tmp');
+    const files = await readdir(dir);
+    await Promise.all(files.map(async (file) => {
+      try {
+        const p = path.join(dir, file);
+        const stat = await lstat(p);
+        if (!stat.isDirectory()) {
+          await unlink(p);
+          console.log(`Removed file ${p}`);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }));
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 const downloads = async () => {
+  await removeTmpFiles(path.join(__dirname, 'tmp'));
   console.log('Downloading https://s3-eu-west-1.amazonaws.com/dynamorse-test/testRaw.raw');
   await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/testRaw.raw', 'testRaw.raw');
   console.log('Downloading https://s3-eu-west-1.amazonaws.com/dynamorse-test/sdp_rfc4175_10bit_1080i50.sdp');

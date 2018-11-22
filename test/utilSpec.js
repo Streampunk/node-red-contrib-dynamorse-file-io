@@ -21,20 +21,15 @@ const { sep } = require('path');
 
 const utilSpec = () => {
   test('Resolving relative URLs to file paths', t => {
-    const numTests = 3;
-    t.plan(numTests);
     let cwd = process.cwd();
     let resolved = resolveUri('package.json');
     t.ok(resolved.startsWith('file:'), 'creates a file protocol URL.');
     t.ok(resolved.indexOf(cwd) > 0, 'contains the CWD.');
     t.ok(resolved.endsWith('/package.json'), 'ends with separator and name.');
+    t.end();
   });
 
   test('Resolving paths with drive letters', t => {
-    let numTests = 6;
-    if (sep === '\\')
-      numTests++;
-    t.plan(numTests);
     let resolved = resolveUri('c:\\package.json');
     t.ok(resolved.startsWith('file:'), 'windows version creates a file protocol URL.');
     t.ok(resolved.endsWith('/c:\\package.json'), 'windows version ends with separator and name.');
@@ -46,6 +41,7 @@ const utilSpec = () => {
     if (sep === '\\') { // Test only works on Windows
       t.equal(fileURIToPath(resolved), 'c:\\package.json', 'windows separators sorted.');
     }
+    t.end();
   });
 
   const testURLs = [
@@ -56,15 +52,13 @@ const utilSpec = () => {
   ];
 
   test('Resolving other protocols are not altered', t => {
-    const numTests = testURLs.length;
-    t.plan(numTests);
     for ( let u of testURLs) {
       t.equal(resolveUri(u), u, `URL ${u} is not alterred.`);
     }
+    t.end();
   });
 
   test('Swapping bytes', t => {
-    t.plan(11);
     t.deepEqual(swapBytes(Buffer.alloc(0), 16), Buffer.alloc(0),
       'works for empty buffers.');
     t.deepEqual(swapBytes(Buffer.from([1, 2]), 16), Buffer.from([2, 1]),
@@ -88,6 +82,7 @@ const utilSpec = () => {
       'does not swap bytes for an unknown bit depth.');
     let b = Buffer.from([5, 4, 3, 2, 1]);
     t.equal(swapBytes(b, 16), b, 'returns the same buffer.');
+    t.end();
   });
 };
 
