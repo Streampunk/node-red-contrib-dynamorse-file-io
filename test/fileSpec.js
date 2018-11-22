@@ -44,7 +44,7 @@ const removeTmpFiles = async() => {
   try {
     const dir = path.join(__dirname, 'tmp');
     const files = await readdir(dir);
-    await Promise.all(files.map(async (file) => {
+    await Promise.all(files.map(async file => {
       try {
         const p = path.join(dir, file);
         const stat = await lstat(p);
@@ -59,7 +59,7 @@ const removeTmpFiles = async() => {
   } catch (err) {
     console.error(err);
   }
-}
+};
 
 const downloads = async () => {
   await removeTmpFiles(path.join(__dirname, 'tmp'));
