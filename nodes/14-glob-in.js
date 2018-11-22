@@ -54,6 +54,8 @@ module.exports = function (RED) {
     const headroom = 1;
     let globBufs = [];
     let firstFile = '';
+    node.ownerName = `GlobIn-${node.id}`;
+    node.bufferSize = 0;
     
     this.configDuration = [ +config.grainDuration.split('/')[0],
       +config.grainDuration.split('/')[1] ];
@@ -84,24 +86,28 @@ module.exports = function (RED) {
     const clContext = RED.nodes.getNode(config.clContext);
 
     async function makeBuffers(numBytes) {
+      node.bufferSize = numBytes;
       const bufs = [];
-      for (let i=0; i<config.maxBuffer+headroom; ++i) {
-        if (clContext) {
-          const context = await clContext.getContext();
-          bufs.push(await context.createBuffer(numBytes, 'readonly', 'none'));
-        }
-        else
-          bufs.push(Buffer.allocUnsafe(numBytes));
-      }
+      for (let i=0; i<config.maxBuffer+headroom; ++i)
+        bufs.push(Buffer.allocUnsafe(numBytes));
       return bufs;
     }
 
-    async function doRead(fd, buf) {
-      if (buf.hasOwnProperty('hostAccess'))
+    async function getBuf() {
+      if (clContext) {
+        const buf = await clContext.createBuffer(node.bufferSize, 'readonly', 'coarse', node.ownerName);
         await buf.hostAccess('writeonly');
+        return buf;
+      } else
+        return globBufs[(frameNum++)%(config.maxBuffer+headroom)];
+    }
 
-      return readFile(fd, buf, 0, buf.length, node.imageOffset)
-        .map(buf => { fs.close(fd); return buf; });
+    async function doRead(fd) {
+      return getBuf()
+        .then(buf => 
+          readFile(fd, buf, 0, buf.length, node.imageOffset)
+            .map(buf => { fs.close(fd); return buf; })
+        );
     }
 
     fsaccess(pathParts[0], fs.R_OK)
@@ -198,7 +204,7 @@ module.exports = function (RED) {
           })
             .flatMap(x => readdir(x).flatten().filter(y => mm.isMatch(y, pathParts[1])).sort())
             .flatMap(x => openFile(pathParts[0] + path.sep + x, 'r'))
-            .flatMap(fd => H(doRead(fd, globBufs[(frameNum++)%(config.maxBuffer+headroom)])))
+            .flatMap(fd => H(doRead(fd)))
             .series()
             .map(g => {
               if (node.headers.length > 0 && config.regenerate === false) {
@@ -222,6 +228,11 @@ module.exports = function (RED) {
       })
       .catch(node.preFlightError);
     node.log('Set up promises for raw file in.');
+
+    this.on('close', () => {
+      if (clContext)
+        clContext.releaseBuffers(node.ownerName);
+    });
   }
   util.inherits(GlobIn, redioactive.Funnel);
   RED.nodes.registerType('glob-in', GlobIn);
