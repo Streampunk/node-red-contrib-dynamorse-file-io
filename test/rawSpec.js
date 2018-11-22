@@ -14,6 +14,25 @@
 */
 
 const TestUtil = require('dynamorse-test');
+const fs = require('fs');
+const util = require('util');
+const getUri = util.promisify(require('get-uri'));
+const mkdir = util.promisify(fs.mkdir);
+const path = require('path');
+
+let download = async (uri, file) => {
+  try {
+    await mkdir(path.join(__dirname, 'tmp'));
+  } catch (e) {
+    if (e.code !== 'EEXIST') throw e;
+  }
+  let srcStream = await getUri(uri);
+  await new Promise((resolve, reject) => {
+    srcStream.pipe(fs.createWriteStream(path.join(__dirname, 'tmp', file))
+      .on('finish', resolve)
+      .on('error', reject));
+  });
+};
 
 const rawInTestNode = () => ({
   type: 'raw-file-in',
@@ -30,32 +49,36 @@ const rawInTestNode = () => ({
 const rawInNodeId = '24fde3d7.b7544c';
 const spoutNodeId = 'f2186999.7e5f78';
 
-TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
-  rawFilename: __dirname + '/data/testRaw.raw',
-  sdpFilename: __dirname + '/data/sdp_rfc4175_10bit_1080i50.sdp',
-  maxBuffer: 10,
-  spoutTimeout: 0
-}, params => {
-  var testFlow = TestUtil.testNodes.baseTestFlow();
-  testFlow.nodes.push(Object.assign(rawInTestNode(), {
-    id: rawInNodeId,
-    file: params.rawFilename,
-    sdpURL: `file:${params.sdpFilename}`,
-    maxBuffer: params.maxBuffer,
-    wires: [ [ spoutNodeId ] ]
-  }));
+(async () => {
+  await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/testRaw.raw', 'test.raw').catch(console.error);
+  await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/sdp_rfc4175_10bit_1080i50.sdp', 'test.sdp').catch(console.error);
+  TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
+    rawFilename: __dirname + '/tmp/test.raw',
+    sdpFilename: __dirname + '/tmp/test.sdp',
+    maxBuffer: 10,
+    spoutTimeout: 0
+  }, params => {
+    var testFlow = TestUtil.testNodes.baseTestFlow();
+    testFlow.nodes.push(Object.assign(rawInTestNode(), {
+      id: rawInNodeId,
+      file: params.rawFilename,
+      sdpURL: `file:${params.sdpFilename}`,
+      maxBuffer: params.maxBuffer,
+      wires: [ [ spoutNodeId ] ]
+    }));
 
-  testFlow.nodes.push(Object.assign(TestUtil.testNodes.spoutTestNode(),{
-    id: spoutNodeId,
-    timeout: params.spoutTimeout
-  }));
-  return testFlow;
-}, (t, params, msgObj, onEnd) => {
-  //t.comment(`Message: ${JSON.stringify(msgObj)}`);
-  if (msgObj.hasOwnProperty('receive')) {
-    TestUtil.checkGrain(t, msgObj.receive);
-  }
-  else if (msgObj.hasOwnProperty('end') && (msgObj.src === 'spout')) {
-    onEnd();
-  }
-});
+    testFlow.nodes.push(Object.assign(TestUtil.testNodes.spoutTestNode(),{
+      id: spoutNodeId,
+      timeout: params.spoutTimeout
+    }));
+    return testFlow;
+  }, (t, params, msgObj, onEnd) => {
+    //t.comment(`Message: ${JSON.stringify(msgObj)}`);
+    if (msgObj.hasOwnProperty('receive')) {
+      TestUtil.checkGrain(t, msgObj.receive);
+    }
+    else if (msgObj.hasOwnProperty('end') && (msgObj.src === 'spout')) {
+      onEnd();
+    }
+  });
+})();
