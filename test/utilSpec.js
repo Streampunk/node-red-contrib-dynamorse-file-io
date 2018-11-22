@@ -58,6 +58,7 @@ test('Resolving other protocols are not altered', t => {
 });
 
 test('Swapping bytes', t => {
+  t.plan(11);
   t.deepEqual(swapBytes(Buffer.alloc(0), 16), Buffer.alloc(0),
     'works for empty buffes.');
   t.deepEqual(swapBytes(Buffer.from([1, 2]), 16), Buffer.from([2, 1]),
@@ -81,5 +82,4 @@ test('Swapping bytes', t => {
     'does not swap bytes for an unknown bit depth.');
   let b = Buffer.from([5, 4, 3, 2, 1]);
   t.equal(swapBytes(b, 16), b, 'returns the same buffer.');
-  t.end();
 });
