@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-dynamorse-file-io",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Dynamorse File IO nodes for Node-RED",
   "author": "Streampunk Media Ltd",
   "license": "Apache-2.0",
@@ -8,8 +8,8 @@
     "node-red"
   ],
   "dependencies": {
-    "aws-sdk": "^2.224.1",
-    "codecadon": "^0.1.17",
+    "aws-sdk": "^2.361.0",
+    "codecadon": "^0.1.18",
     "get-uri": "^2.0.2",
     "highland": "^2.13.0",
     "kelvinadon": "^0.2.5",
@@ -18,10 +18,10 @@
     "uuid": "^2.0.1"
   },
   "devDependencies": {
-    "dynamorse-test": "^0.2.0",
-    "eslint": "^4.19.1",
-    "eslint-config-google": "^0.9.1",
-    "tape": "^4.9.0"
+    "dynamorse-test": "^0.2.1",
+    "eslint": "^5.9.0",
+    "eslint-config-google": "^0.11.0",
+    "tape": "^4.9.1"
   },
   "scripts": {
     "test": "tape test/*Spec.js",
