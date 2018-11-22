@@ -24,7 +24,7 @@
     "tape": "^4.9.1"
   },
   "scripts": {
-    "test": "tape test/*Spec.js",
+    "test": "tape test/fileSpec.js",
     "lint": "eslint **/*.js",
     "lint-html": "eslint **/*.js -f html -o ./reports/lint-results.html",
     "lint-fix": "eslint --fix **/*.js"

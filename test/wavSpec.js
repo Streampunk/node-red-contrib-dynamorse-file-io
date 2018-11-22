@@ -14,26 +14,8 @@
 */
 
 const TestUtil = require('dynamorse-test');
-// const os = require('os');
 const fs = require('fs');
-const util = require('util');
-const getUri = util.promisify(require('get-uri'));
-const mkdir = util.promisify(fs.mkdir);
 const path = require('path');
-
-let download = async (uri, file) => {
-  try {
-    await mkdir(path.join(__dirname, 'tmp'));
-  } catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-  }
-  let srcStream = await getUri(uri);
-  await new Promise((resolve, reject) => {
-    srcStream.pipe(fs.createWriteStream(path.join(__dirname, 'tmp', file))
-      .on('finish', resolve)
-      .on('error', reject));
-  });
-};
 
 const wavInTestNode = () => ({
   type: 'wav-in',
@@ -46,20 +28,19 @@ const wavInTestNode = () => ({
   wires: [[]]
 });
 
-// const wavOutTestNode = () => ({
-//   type: 'wav-out',
-//   z: TestUtil.testFlowId,
-//   name: 'wav-file-out-test',
-//   x: 300.0,
-//   y: 100.0,
-//   wires: []
-// });
+const wavOutTestNode = () => ({
+  type: 'wav-out',
+  z: TestUtil.testFlowId,
+  name: 'wav-file-out-test',
+  x: 300.0,
+  y: 100.0,
+  wires: []
+});
 
 const wavInNodeId = '24fde3d7.b7544c';
 const spoutNodeId = 'f2186999.7e5f78';
 
-(async () => {
-  await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/audiosweep.wav', 'test.wav');
+const wavSpec = () => {
   TestUtil.nodeRedTest('A wav-in->spout flow is posted to Node-RED', {
     filename: path.join(__dirname, 'tmp', 'test.wav'),
     grainsPerSecond: 25,
@@ -107,40 +88,43 @@ const spoutNodeId = 'f2186999.7e5f78';
       t.comment(`Not handling ${msgType}: ${JSON.stringify(msgObj)}`);
       break;
     }
-  }); })();
+  });
 
-/* TestUtil.nodeRedTest('A wav-in->wav-out flow is posted to Node-RED', {
-  inFilename: __dirname + '/data/please_help_me.wav',
-  outFilename: os.tmpdir() + '/testWavOut.wav',
-  grainsPerSecond: 25,
-  maxBuffer: 10,
-  spoutTimeout: 0
-}, params => {
-  var testFlow = TestUtil.testNodes.baseTestFlow();
-  testFlow.nodes.push(Object.assign(wavInTestNode(), {
-    id: wavInNodeId,
-    file: params.inFilename,
-    grps: params.grainsPerSecond,
-    maxBuffer: params.maxBuffer,
-    wires: [ [ spoutNodeId ] ]
-  }));
+  TestUtil.nodeRedTest('A wav-in->wav-out flow is posted to Node-RED', {
+    inFilename: path.join(__dirname, 'tmp', 'test.wav'),
+    outFilename: path.join(__dirname, 'tmp', '/testWavOut.wav'),
+    grainsPerSecond: 25,
+    maxBuffer: 10,
+    spoutTimeout: 0
+  }, params => {
+    var testFlow = TestUtil.testNodes.baseTestFlow();
+    testFlow.nodes.push(Object.assign(wavInTestNode(), {
+      id: wavInNodeId,
+      file: params.inFilename,
+      grps: params.grainsPerSecond,
+      maxBuffer: params.maxBuffer,
+      wires: [ [ spoutNodeId ] ]
+    }));
 
-  testFlow.nodes.push(Object.assign(wavOutTestNode(), {
-    id: spoutNodeId,
-    file: params.outFilename,
-    timeout: params.spoutTimeout
-  }));
-  return testFlow;
-}, (t, params, msgObj, onEnd) => {
-  t.comment(`Message: ${JSON.stringify(msgObj)}`);
-  if (msgObj.hasOwnProperty('receive')) {
-    TestUtil.checkGrain(t, msgObj.receive);
-    params.count++;
-  }
-  else if (msgObj.hasOwnProperty('wavDone')) {
-    var srcStats = fs.statSync(params.inFilename);
-    var dstStats = fs.statSync(params.outFilename);
-    t.equal(srcStats.size, dstStats.size, 'output file is same size as source file');
-    onEnd();
-  }
-}); */
+    testFlow.nodes.push(Object.assign(wavOutTestNode(), {
+      id: spoutNodeId,
+      file: params.outFilename,
+      timeout: params.spoutTimeout
+    }));
+    return testFlow;
+  }, (t, params, msgObj, onEnd) => {
+    // t.comment(`Message: ${JSON.stringify(msgObj)}`);
+    if (msgObj.hasOwnProperty('receive')) {
+      TestUtil.checkGrain(t, msgObj.receive);
+      params.count++;
+    }
+    else if (msgObj.hasOwnProperty('wavDone')) {
+      var srcStats = fs.statSync(params.inFilename);
+      var dstStats = fs.statSync(params.outFilename);
+      t.equal(srcStats.size, dstStats.size, 'output file is same size as source file');
+      onEnd();
+    }
+  });
+};
+
+module.exports = wavSpec;

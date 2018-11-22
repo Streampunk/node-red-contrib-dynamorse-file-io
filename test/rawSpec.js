@@ -14,25 +14,6 @@
 */
 
 const TestUtil = require('dynamorse-test');
-const fs = require('fs');
-const util = require('util');
-const getUri = util.promisify(require('get-uri'));
-const mkdir = util.promisify(fs.mkdir);
-const path = require('path');
-
-let download = async (uri, file) => {
-  try {
-    await mkdir(path.join(__dirname, 'tmp'));
-  } catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-  }
-  let srcStream = await getUri(uri);
-  await new Promise((resolve, reject) => {
-    srcStream.pipe(fs.createWriteStream(path.join(__dirname, 'tmp', file))
-      .on('finish', resolve)
-      .on('error', reject));
-  });
-};
 
 const rawInTestNode = () => ({
   type: 'raw-file-in',
@@ -49,12 +30,10 @@ const rawInTestNode = () => ({
 const rawInNodeId = '24fde3d7.b7544c';
 const spoutNodeId = 'f2186999.7e5f78';
 
-(async () => {
-  await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/testRaw.raw', 'test.raw').catch(console.error);
-  await download('https://s3-eu-west-1.amazonaws.com/dynamorse-test/sdp_rfc4175_10bit_1080i50.sdp', 'test.sdp').catch(console.error);
+const rawSpec = () => {
   TestUtil.nodeRedTest('A raw-in->spout flow is posted to Node-RED', {
-    rawFilename: __dirname + '/tmp/test.raw',
-    sdpFilename: __dirname + '/tmp/test.sdp',
+    rawFilename: __dirname + '/tmp/testRaw.raw',
+    sdpFilename: __dirname + '/tmp/testRaw.sdp',
     maxBuffer: 10,
     spoutTimeout: 0
   }, params => {
@@ -81,4 +60,6 @@ const spoutNodeId = 'f2186999.7e5f78';
       onEnd();
     }
   });
-})();
+};
+
+module.exports = rawSpec;
