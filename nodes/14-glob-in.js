@@ -19,6 +19,7 @@ var redioactive = require('node-red-contrib-dynamorse-core').Redioactive;
 var SDPProcessing = require('node-red-contrib-dynamorse-core').SDPProcessing;
 var fs = require('fs');
 var grainFlipper = require('../util/grainFlipper.js');
+// var grainFlip = require('../util/grainFlip.js');
 var dpx = require('../util/dpx.js');
 var tga = require('../util/tga.js');
 var Grain = require('node-red-contrib-dynamorse-core').Grain;
@@ -83,7 +84,8 @@ module.exports = function (RED) {
       break;
     }
 
-    const clContext = RED.nodes.getNode(config.clContext);
+    const clContextNode = RED.nodes.getNode(config.clContext);
+    const clContext = clContextNode ? clContextNode.getContext() : null;
 
     async function makeBuffers(numBytes) {
       node.bufferSize = numBytes;
@@ -192,6 +194,8 @@ module.exports = function (RED) {
         flowID = this.flowID();
         sourceID = this.sourceID();
 
+        // const grainFlipper = new grainFlip(node);
+
         var readLoop = 0;
         var headerIndex = 0;
         node.highland(
@@ -199,6 +203,7 @@ module.exports = function (RED) {
             if (config.loop || readLoop++ === 0) {
               push(null, pathParts[0]); next();
             } else {
+              // grainFlipper.end();
               push(null, H.nil);
             }
           })
@@ -224,6 +229,7 @@ module.exports = function (RED) {
                 g.timecode, flowID, sourceID, node.grainDuration);
             })
             .pipe(grainFlipper(node.tags, node.flip))
+            // .through(grainFlipper)
         );
       })
       .catch(node.preFlightError);
